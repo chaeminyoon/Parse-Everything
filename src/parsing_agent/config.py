@@ -1,0 +1,132 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+import os
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+@dataclass(slots=True)
+class WorkflowWeights:
+    text_coverage: float = 0.35
+    normalized_similarity: float = 0.35
+    structure_retention: float = 0.15
+    table_preservation: float = 0.15
+
+
+@dataclass(slots=True)
+class WorkflowConfig:
+    parser_names: list[str] = field(default_factory=lambda: ["opendataloader-pdf", "layout-first-pdf", "text-fallback"])
+    pdf_parser_roles: dict[str, str] = field(
+        default_factory=lambda: {
+            "opendataloader-pdf": "primary",
+            "layout-first-pdf": "support",
+        }
+    )
+    triage_enabled: bool = field(default_factory=lambda: _env_flag("PARSING_AGENT_TRIAGE_ENABLED", True))
+    triage_sample_pages: int = field(default_factory=lambda: int(os.getenv("PARSING_AGENT_TRIAGE_SAMPLE_PAGES", "2")))
+    max_repair_rounds: int = 1
+    output_format: str = "md"
+    weights: WorkflowWeights = field(default_factory=WorkflowWeights)
+    judge_weight: float = 0.25
+    table_repair_gain_weight: float = field(
+        default_factory=lambda: float(os.getenv("PARSING_AGENT_TABLE_REPAIR_GAIN_WEIGHT", "0.15"))
+    )
+    min_total_score: float = 0.7
+    min_text_coverage: float = 0.7
+    max_hallucination_risk: float | None = None
+    judge_prompt_tuning_enabled: bool = field(
+        default_factory=lambda: _env_flag("PARSING_AGENT_JUDGE_PROMPT_TUNING_ENABLED", True)
+    )
+    judge_feedback_log_path: str = field(
+        default_factory=lambda: os.getenv("PARSING_AGENT_JUDGE_FEEDBACK_LOG_PATH", "judge_feedback.jsonl")
+    )
+    judge_feedback_log_max_records: int = field(
+        default_factory=lambda: int(os.getenv("PARSING_AGENT_JUDGE_FEEDBACK_LOG_MAX_RECORDS", "50"))
+    )
+    judge_multimodal_grounding_enabled: bool = field(
+        default_factory=lambda: _env_flag("PARSING_AGENT_JUDGE_MULTIMODAL_GROUNDING_ENABLED", True)
+    )
+    judge_grounding_max_pages: int = field(
+        default_factory=lambda: int(os.getenv("PARSING_AGENT_JUDGE_GROUNDING_MAX_PAGES", "2"))
+    )
+    judge_model: str | None = field(
+        default_factory=lambda: os.getenv("PARSING_AGENT_JUDGE_MODEL", "gpt-4.1-mini")
+    )
+    judge_base_url: str = field(default_factory=lambda: os.getenv("PARSING_AGENT_JUDGE_BASE_URL", "https://api.openai.com/v1"))
+    judge_api_key: str | None = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
+    judge_timeout_seconds: float = 60.0
+    visual_table_recovery_enabled: bool = field(
+        default_factory=lambda: _env_flag("PARSING_AGENT_VISUAL_TABLE_RECOVERY_ENABLED", True)
+    )
+    visual_table_recovery_model: str | None = field(
+        default_factory=lambda: os.getenv("PARSING_AGENT_VISUAL_TABLE_RECOVERY_MODEL")
+        or "gpt-5-mini"
+    )
+    visual_table_recovery_timeout_seconds: float = 90.0
+    visual_table_recovery_max_tables: int = field(
+        default_factory=lambda: int(os.getenv("PARSING_AGENT_VISUAL_TABLE_RECOVERY_MAX_TABLES", "1"))
+    )
+    repair_fanout_enabled: bool = field(
+        default_factory=lambda: _env_flag("PARSING_AGENT_REPAIR_FANOUT_ENABLED", True)
+    )
+    repair_fanout_max_tasks: int = field(
+        default_factory=lambda: int(os.getenv("PARSING_AGENT_REPAIR_FANOUT_MAX_TASKS", "4"))
+    )
+    visual_table_detection_provider: str = field(
+        default_factory=lambda: os.getenv("PARSING_AGENT_VISUAL_TABLE_DETECTION_PROVIDER", "pymupdf")
+    )
+    visual_table_crop_padding: float = field(
+        default_factory=lambda: float(os.getenv("PARSING_AGENT_VISUAL_TABLE_CROP_PADDING", "8"))
+    )
+    layout_first_skip_top_margin: float = field(
+        default_factory=lambda: float(os.getenv("PARSING_AGENT_LAYOUT_FIRST_SKIP_TOP_MARGIN", "0"))
+    )
+    layout_first_skip_bottom_margin: float = field(
+        default_factory=lambda: float(os.getenv("PARSING_AGENT_LAYOUT_FIRST_SKIP_BOTTOM_MARGIN", "0"))
+    )
+    layout_first_table_format: str = field(
+        default_factory=lambda: os.getenv("PARSING_AGENT_LAYOUT_FIRST_TABLE_FORMAT", "markdown")
+    )
+    layout_first_merge_multipage_tables: bool = field(
+        default_factory=lambda: _env_flag("PARSING_AGENT_LAYOUT_FIRST_MERGE_MULTIPAGE_TABLES", True)
+    )
+    layout_first_image_captioning_enabled: bool = field(
+        default_factory=lambda: _env_flag("PARSING_AGENT_LAYOUT_FIRST_IMAGE_CAPTIONING_ENABLED", bool(os.getenv("OPENAI_API_KEY")))
+    )
+    layout_first_image_caption_model: str | None = field(
+        default_factory=lambda: os.getenv("PARSING_AGENT_LAYOUT_FIRST_IMAGE_CAPTION_MODEL")
+        or os.getenv("PARSING_AGENT_JUDGE_MODEL", "gpt-4.1-mini")
+    )
+    layout_first_image_caption_max_blocks: int = field(
+        default_factory=lambda: int(os.getenv("PARSING_AGENT_LAYOUT_FIRST_IMAGE_CAPTION_MAX_BLOCKS", "3"))
+    )
+    layout_first_image_caption_timeout_seconds: float = field(
+        default_factory=lambda: float(os.getenv("PARSING_AGENT_LAYOUT_FIRST_IMAGE_CAPTION_TIMEOUT_SECONDS", "60"))
+    )
+    layout_first_image_crop_padding: float = field(
+        default_factory=lambda: float(os.getenv("PARSING_AGENT_LAYOUT_FIRST_IMAGE_CROP_PADDING", "4"))
+    )
+    post_selection_image_captioning_enabled: bool = field(
+        default_factory=lambda: _env_flag("PARSING_AGENT_POST_SELECTION_IMAGE_CAPTIONING_ENABLED", True)
+    )
+    post_selection_image_caption_model: str | None = field(
+        default_factory=lambda: os.getenv("PARSING_AGENT_POST_SELECTION_IMAGE_CAPTION_MODEL")
+        or os.getenv("PARSING_AGENT_JUDGE_MODEL", "gpt-4.1-mini")
+    )
+    post_selection_image_caption_max_images: int = field(
+        default_factory=lambda: int(os.getenv("PARSING_AGENT_POST_SELECTION_IMAGE_CAPTION_MAX_IMAGES", "3"))
+    )
+    post_selection_image_caption_timeout_seconds: float = field(
+        default_factory=lambda: float(os.getenv("PARSING_AGENT_POST_SELECTION_IMAGE_CAPTION_TIMEOUT_SECONDS", "60"))
+    )
+    langsmith_tracing: bool = field(default_factory=lambda: _env_flag("LANGSMITH_TRACING"))
+    langsmith_project: str | None = field(default_factory=lambda: os.getenv("LANGSMITH_PROJECT"))
+    langsmith_api_key: str | None = field(default_factory=lambda: os.getenv("LANGSMITH_API_KEY"))
+    langsmith_endpoint: str | None = field(default_factory=lambda: os.getenv("LANGSMITH_ENDPOINT"))
+    langsmith_workspace_id: str | None = field(default_factory=lambda: os.getenv("LANGSMITH_WORKSPACE_ID"))

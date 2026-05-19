@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "parsing-agent-system"
+version = "0.1.0"
+description = "Agent system for parsing, evaluating, repairing, and selecting document parse outputs."
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=1.0.0",
+    "langsmith>=0.5.0",
+    "opendataloader-pdf>=2.4.0",
+    "openai>=1.0.0",
+    "pymupdf>=1.24.0",
+    "python-dotenv>=1.0.0",
+    "pypdf>=5.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+parsing-agent = "parsing_agent.cli:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
