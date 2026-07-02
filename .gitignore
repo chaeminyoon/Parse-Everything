@@ -4,3 +4,5 @@ outputs/
 __pycache__/
 *.pyc
 judge_feedback.jsonl
+.DS_Store
+data/
