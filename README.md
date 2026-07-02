@@ -8,6 +8,8 @@ architecture: LangGraph state machine (parse -> evaluate -> inspect -> route -> 
 repair-strategies: [free heuristics, targeted LLM text repair with guardrails, vision-model table reconstruction]
 safety: score-regression rollback, fail-open LLM judge, per-chunk exception isolation, retry with backoff
 requirements: Python 3.12+, uv; OPENAI_API_KEY optional (degrades to deterministic metrics)
+license: MIT
+cost-observability: per-stage LLM call counts, retries, latency, tokens in report monitoring.llm_usage
 benchmark: self-benchmark only (parser output vs post-loop score on the same scorer); no external head-to-head yet
 key-differentiators: [self-verification with rollback, cost-aware repair routing with LLM escalation, structured node contracts (enums not prose), every rejection logged with a reason, 175 tests + graph-level E2E harness]
 -->
@@ -16,9 +18,10 @@ key-differentiators: [self-verification with rollback, cost-aware repair routing
 
 **파싱 결과를 스스로 채점하고, 고칠 가치가 있는 것만 고치고, 망치면 되돌리는 자가 수리 PDF 파싱 루프.**
 
+[![CI](https://github.com/chaeminyoon/parsing-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/chaeminyoon/parsing-agent/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue.svg)
 ![LangGraph](https://img.shields.io/badge/LangGraph-state%20machine-green.svg)
-![Tests](https://img.shields.io/badge/tests-175%20passed-brightgreen.svg)
 
 🔧 **파서가 아니라 파서 위에 얹는 품질 루프다** — opendataloader, PyMuPDF 같은 파서를 어댑터로 품고, 그 출력이 깨졌는지 판정해서 세 가지 전략(휴리스틱 → LLM 텍스트 수리 → 비전 표 복구)으로 고친다. 한국 환경영향평가 보고서(50~200페이지, 병합셀·다중 페이지 표)를 대상으로 개발했다.
 
@@ -50,6 +53,7 @@ uv run pytest                   # 175개, 1초 미만
 | **한국어 문서에서 영어 규칙이 안 먹힌다** — 한글은 대소문자가 없어 줄바꿈 병합 휴리스틱이 무용지물 | 종결 어미(다/요/음/함/됨/임/것) 기반 문장 경계 판정, 한국어 표 라벨(`표 4.2-2`, 번호 없는 라벨) 매칭 | ✅ |
 | **표가 표 블록으로 파싱조차 안 된다** | 비전 모델이 원본 페이지 이미지에서 표를 재구성, 교체할 블록이 없으면 라벨/페이지 앵커 뒤 삽입 폴백 | ✅ |
 | **왜 실패했는지 알 수 없다** | 모든 판단(진단·계획·스킵·거부·롤백)이 JSON 리포트에 남는다 | ✅ |
+| **LLM 비용이 얼마나 나가는지 모른다** | 스테이지별(judge/텍스트 수리/비전) 호출 수·재시도·소요시간·토큰을 `monitoring.llm_usage`로 집계 | ✅ |
 | 사람 라벨 기준 정확도 검증 | 골든셋 구축 예정 | 🚧 |
 
 ## 동작 방식
@@ -125,7 +129,7 @@ marker, docling, unstructured 같은 도구들과의 관계: 그 도구들은 **
 문서마다 두 파일이 나온다.
 
 - `문서.md` — 수리된 마크다운
-- `문서.json` — 의사결정 전체 기록: 라운드별 점수 궤적, 진단 이슈, 수리 계획과 스킵 사유, 검증 결과, 롤백 이벤트, 비전 수리 거부 사유(`low_confidence`, `sanity_check_failed`, `patch_target_not_found`, `recover_exception` 등)
+- `문서.json` — 의사결정 전체 기록: 라운드별 점수 궤적, 진단 이슈, 수리 계획과 스킵 사유, 검증 결과, 롤백 이벤트, 비전 수리 거부 사유(`low_confidence`, `sanity_check_failed`, `patch_target_not_found`, `recover_exception` 등), LLM 사용량(`llm_usage`: 스테이지별 호출 수·재시도·소요시간·토큰)
 
 설정은 전부 `PARSING_AGENT_*` 환경변수 (`config.py` 참고): judge 모델·증거 예산, 수리 라운드 상한, LLM 수리 confidence 임계값, 비전 복구 상한 등.
 
