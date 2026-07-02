@@ -47,9 +47,11 @@ class RepairChunkTask:
 
 @dataclass(slots=True)
 class RepairChunkResult:
+    """visual repair 청크 하나의 결과. candidate가 None이면 거부/실패."""
     task_id: str
     candidate: ParseCandidate | None = None
     action: RepairAction | None = None
+    rejections: list[dict[str, object]] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,6 +98,7 @@ class WorkflowState(TypedDict, total=False):
     diagnosed_issues_history: list[dict[str, object]]
     failed_visual_task_keys: list[str]
     attempted_repair_routes: list[str]
+    visual_repair_rejections: list[dict[str, object]]
     parse_errors: list[dict[str, str]]
     best_candidate: ParseCandidate
     best_metrics: EvaluationMetrics
@@ -418,6 +421,7 @@ class WorkflowRunner:
             "diagnosed_issues_history": [],
             "failed_visual_task_keys": [],
             "attempted_repair_routes": [],
+            "visual_repair_rejections": [],
             "parse_errors": parse_errors,
         }
 
@@ -591,6 +595,7 @@ class WorkflowRunner:
         actions: list[RepairAction] = []
         visual_targets: list[RepairTarget] = []
         attempted_repair_routes = list(state.get("attempted_repair_routes") or [])
+        visual_repair_rejections = list(state.get("visual_repair_rejections") or [])
 
         def record_attempt(route_name: str) -> None:
             if route_name not in attempted_repair_routes:
@@ -678,6 +683,8 @@ class WorkflowRunner:
                             }
                         )["repair_task_results"]
                     ]
+                    for chunk_result in repair_task_results:
+                        visual_repair_rejections.extend(chunk_result.rejections)
                     merged = self._merge_repair_chunks_node(
                         {
                             "candidate": repaired_candidate,
@@ -734,6 +741,7 @@ class WorkflowRunner:
             "repair_plan": [],
             "failed_visual_task_keys": failed_visual_task_keys,
             "attempted_repair_routes": attempted_repair_routes,
+            "visual_repair_rejections": visual_repair_rejections,
         }
 
     def _repair_chunk_node(self, state) -> WorkflowState:
@@ -744,12 +752,31 @@ class WorkflowRunner:
                 ]
             }
         task = state["task"]
+        rejections: list[dict[str, object]] = []
         try:
-            result = self._repairer.apply_chunk_repair(state["source"], state["candidate"], task)
-        except Exception:  # noqa: BLE001 - 청크 하나의 실패가 나머지 수리를 막으면 안 된다
+            try:
+                result = self._repairer.apply_chunk_repair(
+                    state["source"], state["candidate"], task, rejection_sink=rejections
+                )
+            except TypeError:
+                result = self._repairer.apply_chunk_repair(state["source"], state["candidate"], task)
+        except Exception as exc:  # noqa: BLE001 - 청크 하나의 실패가 나머지 수리를 막으면 안 된다
+            rejections.append(
+                {
+                    "task_id": task.task_id,
+                    "table_label": getattr(task, "table_label", None),
+                    "page_number": getattr(task, "page_number", None),
+                    "reason": "chunk_exception",
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            )
             result = None
         if result is None:
-            return {"repair_task_results": [RepairChunkResult(task_id=task.task_id)]}
+            return {
+                "repair_task_results": [
+                    RepairChunkResult(task_id=task.task_id, rejections=rejections)
+                ]
+            }
         candidate, action = result
         patch_label = candidate.metadata.get("repair_chunk_table_label")
         patch_markdown = candidate.metadata.get("repair_chunk_markdown")
@@ -861,6 +888,7 @@ class WorkflowRunner:
                         "paths": [],
                     },
                     "failed_visual_task_keys": list(state.get("failed_visual_task_keys") or []),
+                    "visual_repair_rejections": list(state.get("visual_repair_rejections") or []),
                     "parse_errors": list(state.get("parse_errors") or []),
                     "rollback_events": list(state.get("rollback_events") or []),
                 },

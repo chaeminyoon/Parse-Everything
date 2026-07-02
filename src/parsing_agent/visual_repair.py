@@ -1220,6 +1220,56 @@ def replace_page_table_block(content: str, page_number: int, markdown: str, tabl
     return normalized
 
 
+def _find_text_label_line_index(lines: list[str], label: str) -> int | None:
+    """번호 없는 표 라벨을 공백 무시 부분 일치로 찾는다."""
+    needle = re.sub(r"\s+", "", label).strip()
+    if len(needle) < 4:
+        return None
+    for index, line in enumerate(lines):
+        haystack = re.sub(r"\s+", "", line)
+        if len(haystack) < 4:
+            continue
+        if needle in haystack or haystack in needle:
+            return index
+    return None
+
+
+def insert_table_after_anchor(
+    content: str,
+    table_label: str,
+    markdown: str,
+    *,
+    page_number: int | None = None,
+) -> str:
+    """교체할 표 블록이 없을 때의 폴백: 앵커 다음에 복구된 표를 삽입한다.
+
+    앵커 우선순위는 라벨 번호 → 라벨 텍스트 → 페이지 마커 순서이고,
+    아무 앵커도 없으면 content를 그대로 반환한다 (삽입 위치를 추측으로
+    정해 문서를 오염시키지 않는다).
+    """
+    markdown_lines = [line.rstrip() for line in markdown.splitlines() if line.strip()]
+    if len(markdown_lines) < 2:
+        return content
+    lines = content.splitlines()
+    anchor: int | None = None
+    label_number = _label_number(_normalize_table_label(table_label))
+    if label_number is not None:
+        pattern = re.compile(rf"(?:{_TABLE_PREFIX}\s*)?{re.escape(label_number)}")
+        anchor = next((index for index, line in enumerate(lines) if pattern.search(line)), None)
+    if anchor is None:
+        anchor = _find_text_label_line_index(lines, table_label)
+    if anchor is None and page_number is not None:
+        marker = f"<!-- page {page_number} -->"
+        anchor = next((index for index, line in enumerate(lines) if line.strip() == marker), None)
+    if anchor is None:
+        return content
+    replacement = [*lines[: anchor + 1], "", *markdown_lines, "", *lines[anchor + 1 :]]
+    normalized = "\n".join(replacement)
+    if content.endswith("\n"):
+        normalized += "\n"
+    return normalized
+
+
 def replace_table_block(
     content: str,
     table_label: str,
@@ -1237,21 +1287,26 @@ def replace_table_block(
 
     normalized_label = _normalize_table_label(table_label)
     label_number = _label_number(normalized_label)
-    if label_number is None:
-        return content
 
     markdown_lines = [line.rstrip() for line in markdown.splitlines() if line.strip()]
     if len(markdown_lines) < 2:
         return content
 
     lines = content.splitlines()
-    label_pattern = re.compile(rf"(?:{_TABLE_PREFIX}\s*)?{re.escape(label_number)}")
     label_index: int | None = None
-    for index, line in enumerate(lines):
-        if label_pattern.search(line):
-            label_index = index
-            break
+    if label_number is not None:
+        label_pattern = re.compile(rf"(?:{_TABLE_PREFIX}\s*)?{re.escape(label_number)}")
+        for index, line in enumerate(lines):
+            if label_pattern.search(line):
+                label_index = index
+                break
+    else:
+        # "사후환경영향조사계획 표"처럼 번호 없는 라벨은 라벨 텍스트
+        # 자체를 후보 본문에서 찾는다.
+        label_index = _find_text_label_line_index(lines, table_label)
     if label_index is None:
+        if label_number is None:
+            return content
         position = _resolve_table_position_from_metadata(table_label, candidate_metadata)
         if position is None:
             return content

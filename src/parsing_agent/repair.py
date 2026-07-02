@@ -11,6 +11,7 @@ from parsing_agent.visual_repair import (
     VisualRepairTask,
     _normalize_recovered_table_markup,
     _page_table_selector_from_label,
+    insert_table_after_anchor,
     replace_page_table_block,
     replace_table_block,
 )
@@ -1202,29 +1203,55 @@ class HeuristicRepairer(CandidateRepairer):
         source: DocumentSource,
         candidate: ParseCandidate,
         task: VisualRepairTask,
+        rejection_sink: list[dict[str, object]] | None = None,
     ) -> tuple[ParseCandidate, RepairAction] | None:
         """계획된 visual table repair task 하나를 실제로 수행한다.
 
         visual recoverer가 빈 결과를 주거나 confidence가 `0.45` 미만이면
-        버린다. 통과한 경우에만 candidate 안의 해당 표 블록을 교체한다.
+        버린다. 통과하면 candidate 안의 해당 표 블록을 교체하고, 교체할
+        블록이 없으면 라벨/페이지 앵커 뒤 삽입으로 폴백한다. 거부 시
+        `rejection_sink`에 사유를 기록한다.
         """
+
+        def _reject(reason: str, **details: object) -> None:
+            if rejection_sink is not None:
+                rejection_sink.append(
+                    {
+                        "task_id": task.task_id,
+                        "table_label": task.table_label,
+                        "page_number": task.page_number,
+                        "issue_types": list(task.issue_types),
+                        "reason": reason,
+                        **details,
+                    }
+                )
+
         if self._visual_table_recoverer is None:
+            _reject("no_visual_recoverer")
             return None
         if source.page_count is not None and (task.page_number < 1 or task.page_number > source.page_count):
+            _reject("page_out_of_range")
             return None
         try:
             recovery = self._visual_table_recoverer.recover_task(source, candidate.content, task)
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - 사유 기록 후 해당 task만 버린다
+            _reject("recover_exception", error=f"{type(exc).__name__}: {exc}")
             return None
-        if recovery is None or recovery.confidence < 0.45 or not recovery.markdown.strip():
+        if recovery is None or not recovery.markdown.strip():
+            _reject("empty_recovery")
+            return None
+        if recovery.confidence < 0.45:
+            _reject("low_confidence", confidence=round(recovery.confidence, 4))
             return None
         recovered_markdown = _normalize_recovered_table_markup(recovery.markdown)
         if not recovered_markdown:
+            _reject("normalize_failed")
             return None
         if not _recovered_table_passes_sanity(
             recovered_markdown=recovered_markdown,
             issue_types=task.issue_types,
         ):
+            _reject("sanity_check_failed")
             return None
         transformed = replace_table_block(
             candidate.content,
@@ -1242,7 +1269,19 @@ class HeuristicRepairer(CandidateRepairer):
                     recovered_markdown,
                     table_index=table_index,
                 )
+        patch_mode = "replace"
         if transformed == candidate.content:
+            # 파서가 표를 표 블록으로 렌더링하지 못한 경우: 교체 대상이
+            # 없으므로 라벨/페이지 앵커 뒤에 복구된 표를 삽입한다.
+            transformed = insert_table_after_anchor(
+                candidate.content,
+                task.table_label,
+                recovered_markdown,
+                page_number=page_number if page_number is not None else task.page_number,
+            )
+            patch_mode = "insert_after_anchor"
+        if transformed == candidate.content:
+            _reject("patch_target_not_found")
             return None
         note_suffix = ""
         if recovery.notes:
@@ -1250,10 +1289,12 @@ class HeuristicRepairer(CandidateRepairer):
         crop_suffix = ""
         if recovery.bbox is not None:
             crop_suffix = f" Crop: {recovery.crop_method} bbox={recovery.bbox}."
+        patch_suffix = "" if patch_mode == "replace" else " Patched by inserting after the label/page anchor (no table block to replace)."
         action = RepairAction(
             action_name="recover_table_from_pdf_image",
             description=(
                 f"Recover {recovery.table_label} from the source PDF page image and replace the broken parsed block."
+                f"{patch_suffix}"
                 f"{crop_suffix}"
                 f"{note_suffix}"
             ),
