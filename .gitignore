@@ -7,3 +7,4 @@ judge_feedback.jsonl
 .DS_Store
 data/
 *.egg-info/
+benchmarks/results/work/

@@ -1,0 +1,140 @@
+{
+  "환경영향평가 협의내용[광양(여천)항 낙포부두 리뉴얼사업].pdf": {
+    "opendataloader": {
+      "seconds": 1.1,
+      "characters": 8742,
+      "metrics": {
+        "total_score": 0.7444,
+        "text_coverage": 1.0,
+        "normalized_similarity": 0.9021,
+        "structure_retention": 1.0,
+        "table_preservation": 0.0303
+      }
+    },
+    "pymupdf4llm": {
+      "seconds": 0.7,
+      "characters": 7603,
+      "metrics": {
+        "total_score": 0.4046,
+        "text_coverage": 0.2161,
+        "normalized_similarity": 0.7881,
+        "structure_retention": 1.0,
+        "table_preservation": 0.0272
+      }
+    },
+    "markitdown": {
+      "seconds": 0.2,
+      "characters": 17189,
+      "metrics": {
+        "total_score": 0.7854,
+        "text_coverage": 0.9935,
+        "normalized_similarity": 0.7264,
+        "structure_retention": 1.0,
+        "table_preservation": 0.3238
+      }
+    },
+    "parsing-agent": {
+      "seconds": 209.2,
+      "characters": 8098,
+      "metrics": {
+        "total_score": 0.8117,
+        "text_coverage": 0.9951,
+        "normalized_similarity": 0.9368,
+        "structure_retention": 1.0,
+        "table_preservation": 0.0272
+      }
+    }
+  },
+  "35_(본안) 동북아 LNG 0200 사업개요_F.pdf": {
+    "opendataloader": {
+      "seconds": 5.3,
+      "characters": 14966,
+      "metrics": {
+        "total_score": 0.5825,
+        "text_coverage": 0.8971,
+        "normalized_similarity": 0.621,
+        "structure_retention": 0.5273,
+        "table_preservation": 0.4393
+      }
+    },
+    "pymupdf4llm": {
+      "seconds": 16.5,
+      "characters": 5692,
+      "metrics": {
+        "total_score": 0.0,
+        "text_coverage": 0.0957,
+        "normalized_similarity": 0.1169,
+        "structure_retention": 0.4727,
+        "table_preservation": 0.1274
+      }
+    },
+    "markitdown": {
+      "seconds": 1.4,
+      "characters": 20435,
+      "metrics": {
+        "total_score": 0.6802,
+        "text_coverage": 0.9121,
+        "normalized_similarity": 0.6524,
+        "structure_retention": 0.5818,
+        "table_preservation": 0.4593
+      }
+    },
+    "parsing-agent": {
+      "seconds": 185.9,
+      "characters": 10759,
+      "metrics": {
+        "total_score": 0.6301,
+        "text_coverage": 0.8831,
+        "normalized_similarity": 0.714,
+        "structure_retention": 0.5273,
+        "table_preservation": 0.4146
+      }
+    }
+  },
+  "NP 0300 (본안)환경영향평가 대상지역의 설정.pdf": {
+    "opendataloader": {
+      "seconds": 1.8,
+      "characters": 6142,
+      "metrics": {
+        "total_score": 0.6379,
+        "text_coverage": 0.6976,
+        "normalized_similarity": 0.4899,
+        "structure_retention": 1.0,
+        "table_preservation": 0.98
+      }
+    },
+    "pymupdf4llm": {
+      "seconds": 3.4,
+      "characters": 3925,
+      "metrics": {
+        "total_score": 0.669,
+        "text_coverage": 0.6254,
+        "normalized_similarity": 0.6812,
+        "structure_retention": 1.0,
+        "table_preservation": 1.0
+      }
+    },
+    "markitdown": {
+      "seconds": 0.1,
+      "characters": 10009,
+      "metrics": {
+        "total_score": 0.5309,
+        "text_coverage": 0.7065,
+        "normalized_similarity": 0.2082,
+        "structure_retention": 1.0,
+        "table_preservation": 0.8125
+      }
+    },
+    "parsing-agent": {
+      "seconds": 260.2,
+      "characters": 3669,
+      "metrics": {
+        "total_score": 0.755,
+        "text_coverage": 0.7109,
+        "normalized_similarity": 0.685,
+        "structure_retention": 1.0,
+        "table_preservation": 0.98
+      }
+    }
+  }
+}
