@@ -10,7 +10,7 @@ safety: score-regression rollback, fail-open LLM judge, per-chunk exception isol
 requirements: Python 3.12+, uv; OPENAI_API_KEY optional (degrades to deterministic metrics)
 license: MIT
 cost-observability: per-stage LLM call counts, retries, latency, tokens in report monitoring.llm_usage
-benchmark: self-benchmark only (parser output vs post-loop score on the same scorer); no external head-to-head yet
+benchmark: head-to-head vs opendataloader/pymupdf4llm/markitdown on 3 real Korean PDFs using this project's own deterministic scorer (bias disclosed; parsing-agent avg 0.732 vs 0.666/0.655/0.358; loses 1 of 3 docs to markitdown); neutral human-label validation pending (golden/ scaffold ready)
 key-differentiators: [self-verification with rollback, cost-aware repair routing with LLM escalation, structured node contracts (enums not prose), every rejection logged with a reason, 175 tests + graph-level E2E harness]
 -->
 
@@ -25,7 +25,7 @@ key-differentiators: [self-verification with rollback, cost-aware repair routing
 
 🔧 **파서가 아니라 파서 위에 얹는 품질 루프다** — opendataloader, PyMuPDF 같은 파서를 어댑터로 품고, 그 출력이 깨졌는지 판정해서 세 가지 전략(휴리스틱 → LLM 텍스트 수리 → 비전 표 복구)으로 고친다. 한국 환경영향평가 보고서(50~200페이지, 병합셀·다중 페이지 표)를 대상으로 개발했다.
 
-- **얼마나 좋아지나?** — 같은 채점기 기준으로 파서 단발 출력 대비 노이즈 문서 0.862→0.981, 본문 절반 누락 문서 0.406→0.930. 실문서에서는 0.768→0.795 ([자체 벤치마크](#자체-벤치마크))
+- **얼마나 좋아지나?** — 베이스라인 파서 단발 출력 대비 실문서 3종 전부 개선(+0.047~+0.117), 열화 시나리오에서 0.406→0.930. 외부 파서 비교에서 평균 1위지만 3문서 중 1개는 markitdown에 졌다 — 표에 그대로 실어놨다 ([벤치마크](#벤치마크))
 - **수리가 문서를 망치면?** — 수리마다 재채점해서 점수가 떨어지면 최고 점수 후보로 되돌린다. 실문서 실행에서 실제로 두 번 발동했다 ([동작 방식](#동작-방식))
 - **API 키 없이도 되나?** — 된다. judge와 LLM 수리 없이 결정적 메트릭만으로 동작하고, judge가 장애여도 파싱은 계속된다 (fail-open) ([신뢰성](#신뢰성))
 - **왜 표가 안 고쳐졌는지 알 수 있나?** — 모든 거부에 사유가 남는다: `low_confidence(0.2)`, `patch_target_not_found`, `recover_exception: TimeoutError` ([리포트](#출력물))
@@ -100,20 +100,37 @@ LangSmith 트레이스도 같은 원칙이라, route 노드를 열면 분기 근
 | 표 구조 파손 (병합셀, 다중 페이지, 헤더 누락) | 비전 표 복구 | vision 1회/표 | 페이지 이미지 crop → 재구성 → 블록 교체 or 앵커 삽입 |
 | 같은 표·같은 이슈 재실패 | 재시도 안 함 | — | 실패 키 추적 |
 
-## 자체 벤치마크
+## 벤치마크
 
-**외부 도구와의 정량 비교표는 아직 없다.** 자체 메트릭으로 남을 채점하면 우리한테 유리한 심판을 세우는 것이라 싣지 않았다. 대신 이 파이프라인의 가치는 **같은 채점기로 잰 "파서 단발 출력 vs 루프 종료" 점수 차이**로 보여줄 수 있다 — 1라운드 점수가 곧 기존 파서의 출력이기 때문이다.
+### 수리 루프의 부가가치 (자체 검증 하네스)
 
-실제 LangGraph를 통째로 돌리는 검증 하네스 기준 (점수: 커버리지·유사도·구조·표 보존 가중합 + judge 블렌딩, 0~1):
+이 파이프라인의 가치는 **같은 채점기로 잰 "파서 단발 출력 vs 루프 종료" 점수 차이**로 보여줄 수 있다 — 1라운드 점수가 곧 기존 파서의 출력이기 때문이다. 실제 LangGraph를 통째로 돌리는 검증 하네스 기준 (점수: 커버리지·유사도·구조·표 보존 가중합 + judge 블렌딩, 0~1):
 
 | 시나리오 | 파서 출력 | 루프 종료 | 개선 | 무슨 일이 있었나 |
 |---|---|---|---|---|
 | 노이즈 문서 (중복 헤딩·잘린 한국어 문장·깨진 표) | 0.862 | **0.981** | +0.119 | 휴리스틱 3종, 전부 검증 통과 |
 | 본문 절반 누락 | 0.406 | **0.930** | +0.524 | 휴리스틱이 구조 복구 → LLM이 본문 복원 |
 | 고장난 수리기 주입 (파괴 테스트) | 0.862 | **0.862** | ±0 | 0.0까지 추락한 결과를 롤백이 차단 |
-| 실제 환경영향평가 협의문서 | 0.768 | **0.795** | +0.027 | 수리 3건 적용, 후반 악화 2회 롤백, 남은 표 문제는 거부 사유로 기록 |
 
-marker, docling, unstructured 같은 도구들과의 관계: 그 도구들은 **단발 변환**이라 출력이 깨졌는지 확인하지 않고, 고치지 않고, 이유도 남기지 않는다. 이 파이프라인은 그런 파서들을 어댑터로 안에 품는 구조라 경쟁 관계가 아니라 그 위에 얹는 레이어다. 사람 라벨 골든셋 + TEDS 계열 표 메트릭으로 제대로 된 외부 벤치마크를 만드는 게 로드맵 1순위다.
+### 외부 파서 head-to-head
+
+실제 환경영향평가 PDF 3종에 대해 네 엔진을 **동일한 결정적 채점기(judge 제외)**로 쟀다. 먼저 공지: **이 채점기는 우리 것이고 parsing-agent는 이걸 내부에서 직접 최적화하므로 구조적으로 유리하다.** 같은 잣대로 쟀을 때의 방향으로만 해석해야 하고, 중립 검증은 사람 라벨(골든셋)로 해야 한다. 재현: `uv sync --extra bench && uv run python benchmarks/run_head_to_head.py data/*.pdf`
+
+| 엔진 | 평균 total | 협의내용 | 사업개요 | 대상지역 설정 | 시간/문서 |
+|---|---|---|---|---|---|
+| **parsing-agent (풀 루프)** | **0.732** | **0.812** | 0.630 | **0.755** | 186~260s |
+| markitdown | 0.666 | 0.785 | **0.680** | 0.531 | 0.1~1.4s |
+| opendataloader (베이스라인 단발) | 0.655 | 0.744 | 0.583 | 0.638 | 1.1~5.3s |
+| pymupdf4llm | 0.358 | 0.405 | 0.000 | 0.669 | 0.7~16.5s |
+
+정직하게 읽으면:
+
+- 3문서 중 2개에서 parsing-agent가 1위였고, **사업개요 문서에서는 markitdown 단발 출력에 졌다** (0.630 vs 0.680). 수리 루프가 항상 이기는 게 아니다 — 그 문서는 구조 자체가 복잡해서 베이스라인 파서의 한계를 루프가 다 메우지 못했다
+- 베이스라인(opendataloader 단발) 대비로는 3문서 모두 개선했다 (+0.068 / +0.047 / +0.117). 루프가 파는 건 "무조건 최고 점수"가 아니라 **어떤 파서 위에서든 그 파서보다 나아지고, 왜/어디가 안 나아졌는지 설명 가능하다**는 것이다
+- 비용이 크다: 단발 파서들이 수 초일 때 풀 루프는 문서당 3~4분 + LLM 호출 (내역은 리포트 `llm_usage`에 남는다)
+- pymupdf4llm은 이 한국어 문서들에서 본문 추출 자체가 무너졌다 (커버리지 0.10~0.63)
+
+marker와 docling은 제외했다 — marker는 GPL-3.0이고 docling은 수 GB 모델 다운로드가 필요해 재현 비용이 크다. 이 도구들과의 공정한 비교는 자체 채점기가 아니라 사람 라벨 골든셋이 생긴 뒤에 의미가 있다. 참고로 이 파이프라인은 저런 파서들을 어댑터로 안에 품는 구조라, 경쟁 관계라기보다 그 위에 얹는 품질 루프다.
 
 ## 신뢰성
 
@@ -139,7 +156,9 @@ Python 3.12 · LangGraph · LangSmith · OpenAI 호환 API (텍스트/비전) ·
 
 ## 로드맵
 
-- [ ] 사람 라벨 골든셋 — 지금 점수는 전부 자체 메트릭이라 사람 기준과의 상관 검증이 안 됐다. 제일 큰 빚
+- [x] 외부 파서 head-to-head (자체 채점기 기준, 편향 공지 포함 — `benchmarks/`)
+- [x] 골든셋 스캐폴드 — 라벨링 가이드·스키마·상관 분석 스크립트 (`golden/`)
+- [ ] 골든셋 라벨 수집 (1차 20건) — 자체 점수와 사람 기준의 상관 검증. 제일 큰 빚
 - [ ] TEDS 계열 셀 단위 표 구조 메트릭 (현재는 열 개수 일관성 수준)
-- [ ] 외부 파서들과의 공정한 head-to-head 벤치마크
+- [ ] 골든셋 기반 중립 채점으로 head-to-head 재실행 (docling 포함)
 - [ ] 다중 페이지 병합셀 표의 비전 crop 전략 개선
