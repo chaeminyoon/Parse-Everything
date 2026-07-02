@@ -249,6 +249,7 @@ def _summarize_langsmith_payload(payload: dict) -> dict[str, object]:
                 "structure_retention": value.structure_retention,
                 "table_preservation": value.table_preservation,
                 "llm_judge_score": value.llm_judge_score,
+                "table_cell_similarity": value.table_cell_similarity,
                 "table_issues": list(value.table_issues),
                 "issue_types": sorted({issue.issue_type for issue in value.issues}),
                 "judge_table_finding_count": 0

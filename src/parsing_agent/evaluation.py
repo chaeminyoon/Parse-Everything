@@ -7,6 +7,7 @@ from typing import Any
 
 from parsing_agent.config import WorkflowConfig, WorkflowWeights
 from parsing_agent.interfaces import CandidateEvaluator, CandidateJudge
+from parsing_agent.table_metrics import calculate_table_cell_similarity, extract_pdf_table_grids
 from parsing_agent.models import (
     DocumentSource,
     EvaluationIssue,
@@ -955,6 +956,17 @@ class DeterministicEvaluator(CandidateEvaluator):
     def __init__(self, config: WorkflowConfig, judge: CandidateJudge | None = None) -> None:
         self._config = config
         self._judge = judge
+        # PDF 표 그리드 추출은 비싸므로 문서 경로별로 캐시한다 (수리 라운드마다 재평가되므로).
+        self._pdf_grid_cache: dict[str, list] = {}
+
+    def _reference_table_grids(self, source: DocumentSource) -> list:
+        cache_key = str(source.path)
+        if cache_key not in self._pdf_grid_cache:
+            self._pdf_grid_cache[cache_key] = extract_pdf_table_grids(
+                source.path,
+                max_pages=getattr(self._config, "table_cell_metric_max_pages", 40),
+            )
+        return self._pdf_grid_cache[cache_key]
 
     def evaluate(self, source: DocumentSource, candidate: ParseCandidate) -> EvaluationMetrics:
         """candidate 하나를 평가해서 workflow가 쓰는 최종 metric을 만든다.
@@ -984,10 +996,21 @@ class DeterministicEvaluator(CandidateEvaluator):
             repetition_penalty=calculate_repetition_penalty(candidate_text),
             total_score=0.0,
         )
+        if _is_pdf_source(source) and getattr(self._config, "table_cell_metric_enabled", True):
+            try:
+                metrics.table_cell_similarity = calculate_table_cell_similarity(
+                    self._reference_table_grids(source), candidate_text
+                )
+            except Exception:  # noqa: BLE001 - 진단 메트릭 실패가 평가를 막으면 안 된다
+                metrics.table_cell_similarity = None
         metrics.notes.extend(_build_notes(metrics))
         if table_structure_consistency < 0.9:
             metrics.notes.append(
                 f"Markdown table column structure inconsistent (consistency={table_structure_consistency:.2f})."
+            )
+        if metrics.table_cell_similarity is not None and metrics.table_cell_similarity < 0.7:
+            metrics.notes.append(
+                f"Cell-level table similarity vs PDF grid is low (teds_lite={metrics.table_cell_similarity:.2f})."
             )
         metrics.table_issues = classify_table_issues(source, candidate, None)
         metrics.issues.extend(

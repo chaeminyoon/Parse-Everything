@@ -67,6 +67,9 @@ class EvaluationMetrics:
     table_issues: list[str] = field(default_factory=list)
     llm_judge_score: float | None = None
     judge_result: JudgeResult | None = None
+    # PDF 괘선 표 그리드 대비 셀 단위 유사도(TEDS-lite). 기준 표가 없으면 None.
+    # 진단용 — total_score에는 섞지 않는다 (골든셋 상관 확인 전까지).
+    table_cell_similarity: float | None = None
     notes: list[str] = field(default_factory=list)
     issues: list[EvaluationIssue] = field(default_factory=list)
 

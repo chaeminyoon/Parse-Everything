@@ -95,6 +95,12 @@ class WorkflowConfig:
     judge_table_evidence_limit: int = field(
         default_factory=lambda: int(os.getenv("PARSING_AGENT_JUDGE_TABLE_EVIDENCE_LIMIT", "5"))
     )
+    table_cell_metric_enabled: bool = field(
+        default_factory=lambda: _env_flag("PARSING_AGENT_TABLE_CELL_METRIC_ENABLED", True)
+    )
+    table_cell_metric_max_pages: int = field(
+        default_factory=lambda: int(os.getenv("PARSING_AGENT_TABLE_CELL_METRIC_MAX_PAGES", "40"))
+    )
     visual_table_recovery_enabled: bool = field(
         default_factory=lambda: _env_flag("PARSING_AGENT_VISUAL_TABLE_RECOVERY_ENABLED", True)
     )
