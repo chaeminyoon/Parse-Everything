@@ -104,6 +104,10 @@ def _best_overlap_line_index(lines: list[str], excerpt: str) -> int | None:
 def _anchor_line_index(lines: list[str], target: RepairTarget) -> int | None:
     """이슈가 실제로 나타나는 후보 라인을 이슈 타입 기반으로 찾는다."""
     issue_type = target.issue_type.lower()
+    if "coverage" in issue_type or "missing" in issue_type:
+        # 누락 내용은 잘린 꼬리인 경우가 많다. 문서 끝을 윈도우로 잡아
+        # LLM이 원문 근거를 보고 이어붙일 수 있게 한다.
+        return len(lines) - 1
     if "repetition" in issue_type or "repeated" in issue_type or "duplication" in issue_type:
         return _first_duplicate_line_index(lines)
     if "wrapped" in issue_type:
@@ -207,7 +211,10 @@ class OpenAITargetedTextRepairer:
         if confidence_value < self._min_confidence:
             return None
         length_ratio = len(fixed_text) / max(1, len(passage))
-        if not (_MIN_LENGTH_RATIO <= length_ratio <= _MAX_LENGTH_RATIO):
+        issue_type = target.issue_type.lower()
+        # 누락 내용 복원은 결과가 윈도우보다 길어지는 게 정상이므로 상한을 완화한다.
+        max_ratio = 10.0 if ("coverage" in issue_type or "missing" in issue_type) else _MAX_LENGTH_RATIO
+        if not (_MIN_LENGTH_RATIO <= length_ratio <= max_ratio):
             return None
         new_lines = [*lines[:start], *fixed_text.splitlines(), *lines[end:]]
         new_content = "\n".join(new_lines)

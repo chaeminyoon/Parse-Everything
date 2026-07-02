@@ -1034,6 +1034,28 @@ def identify_repair_targets(
                 issue=issues_by_type.get(issue_type),
             )
         )
+    if metrics.text_coverage < 0.72:
+        # 구조 라인 복구(heuristic)로도 커버리지가 낮으면 본문 내용 자체가
+        # 누락된 것이다. 휴리스틱 transform으로는 복원 불가능하므로 LLM
+        # 수리 전용 target을 만든다 (repairability="llm").
+        coverage_issue = issues_by_type.get("text_coverage_missing_lines")
+        targets.append(
+            RepairTarget(
+                target_kind="text",
+                issue_type="text_coverage_missing_content",
+                route_name="llm_restore_missing_content",
+                description="Candidate is missing source body content that heuristics cannot restore.",
+                source_name="coverage_metric",
+                severity="high" if metrics.text_coverage < 0.55 else "medium",
+                confidence=round(min(1.0, max(0.0, 1.0 - metrics.text_coverage)), 4),
+                source_excerpt=None if coverage_issue is None else coverage_issue.source_excerpt,
+                candidate_excerpt=None if coverage_issue is None else coverage_issue.candidate_excerpt,
+                expected_gain=round(max(0.05, 0.75 - metrics.text_coverage), 4),
+                estimated_cost=0.5,
+                risk_level="medium",
+                repairability="llm",
+            )
+        )
     return targets
 
 

@@ -95,6 +95,7 @@ class WorkflowState(TypedDict, total=False):
     repair_outcomes: list[RepairOutcome]
     diagnosed_issues_history: list[dict[str, object]]
     failed_visual_task_keys: list[str]
+    attempted_repair_routes: list[str]
     parse_errors: list[dict[str, str]]
     best_candidate: ParseCandidate
     best_metrics: EvaluationMetrics
@@ -416,6 +417,7 @@ class WorkflowRunner:
             "repair_outcomes": [],
             "diagnosed_issues_history": [],
             "failed_visual_task_keys": [],
+            "attempted_repair_routes": [],
             "parse_errors": parse_errors,
         }
 
@@ -487,7 +489,7 @@ class WorkflowRunner:
         if metrics is None or candidate is None:
             return {"repair_targets": []}
         targets = identify_repair_targets(
-            state["source"],
+            self._materialize_source_text(state["source"]),
             self._materialize_candidate_content(candidate),
             metrics,
         )
@@ -507,11 +509,14 @@ class WorkflowRunner:
         repair_targets = list(state.get("repair_targets") or [])
         iteration_count = int(state.get("iteration_count", 0))
         score_delta = self._latest_snapshot_score_delta(state)
-        attempted_routes = {
+        # 액션이 하나도 안 나온 no-op 스텝도 '시도됨'으로 집계해야
+        # 같은 route를 헛돌지 않고 LLM 승격/스킵 판단이 가능하다.
+        attempted_routes = set(state.get("attempted_repair_routes") or [])
+        attempted_routes.update(
             action.route_name
             for action in state.get("repairs") or []
             if isinstance(action, RepairAction) and action.route_name
-        }
+        )
         stalled = iteration_count >= 1 and score_delta is not None and score_delta < 0.01
         skipped_steps: list[RepairPlanStep] = []
         filtered_targets: list[RepairTarget] = []
@@ -572,7 +577,7 @@ class WorkflowRunner:
         return "repair"
 
     def _repair_candidate_node(self, state: WorkflowState) -> WorkflowState:
-        source = state["source"]
+        source = self._materialize_source_text(state["source"])
         metrics = state.get("metrics")
         candidate = state.get("candidate")
         if metrics is None or candidate is None:
@@ -585,11 +590,19 @@ class WorkflowRunner:
         repaired_candidate = materialized_candidate
         actions: list[RepairAction] = []
         visual_targets: list[RepairTarget] = []
+        attempted_repair_routes = list(state.get("attempted_repair_routes") or [])
+
+        def record_attempt(route_name: str) -> None:
+            if route_name not in attempted_repair_routes:
+                attempted_repair_routes.append(route_name)
+
         for step in repair_plan:
             if step.strategy == "visual_table_repair":
                 visual_targets.extend(step.targets)
+                record_attempt(step.route_name)
                 continue
             if step.strategy == "llm_text_repair" and isinstance(self._repairer, HeuristicRepairer):
+                record_attempt(f"llm:{step.route_name}")
                 repaired_candidate, llm_actions = self._repairer.repair_llm_targets(
                     source,
                     repaired_candidate,
@@ -600,6 +613,7 @@ class WorkflowRunner:
                 actions.extend(llm_actions)
                 continue
             step_targets = list(step.targets)
+            record_attempt(step.route_name)
             if isinstance(self._repairer, HeuristicRepairer):
                 try:
                     repaired_candidate, heuristic_actions = self._repairer.repair_heuristics(
@@ -719,6 +733,7 @@ class WorkflowRunner:
             "repair_targets": [],
             "repair_plan": [],
             "failed_visual_task_keys": failed_visual_task_keys,
+            "attempted_repair_routes": attempted_repair_routes,
         }
 
     def _repair_chunk_node(self, state) -> WorkflowState:
