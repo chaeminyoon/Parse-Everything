@@ -84,16 +84,16 @@ class WorkflowConfig:
         default_factory=lambda: _env_flag("PARSING_AGENT_JUDGE_FAIL_OPEN", True)
     )
     judge_max_source_characters: int = field(
-        default_factory=lambda: int(os.getenv("PARSING_AGENT_JUDGE_MAX_SOURCE_CHARACTERS", "12000"))
+        default_factory=lambda: int(os.getenv("PARSING_AGENT_JUDGE_MAX_SOURCE_CHARACTERS", "20000"))
     )
     judge_max_candidate_characters: int = field(
-        default_factory=lambda: int(os.getenv("PARSING_AGENT_JUDGE_MAX_CANDIDATE_CHARACTERS", "12000"))
+        default_factory=lambda: int(os.getenv("PARSING_AGENT_JUDGE_MAX_CANDIDATE_CHARACTERS", "20000"))
     )
     judge_evidence_segments: int = field(
-        default_factory=lambda: int(os.getenv("PARSING_AGENT_JUDGE_EVIDENCE_SEGMENTS", "4"))
+        default_factory=lambda: int(os.getenv("PARSING_AGENT_JUDGE_EVIDENCE_SEGMENTS", "6"))
     )
     judge_table_evidence_limit: int = field(
-        default_factory=lambda: int(os.getenv("PARSING_AGENT_JUDGE_TABLE_EVIDENCE_LIMIT", "3"))
+        default_factory=lambda: int(os.getenv("PARSING_AGENT_JUDGE_TABLE_EVIDENCE_LIMIT", "5"))
     )
     visual_table_recovery_enabled: bool = field(
         default_factory=lambda: _env_flag("PARSING_AGENT_VISUAL_TABLE_RECOVERY_ENABLED", True)

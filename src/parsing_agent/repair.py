@@ -374,6 +374,31 @@ def _is_structural_line(line: str) -> bool:
     return stripped.count("|") >= 2 and (stripped.startswith("|") or stripped.endswith("|"))
 
 
+_HANGUL_CHAR_RE = re.compile(r"[가-힣]")
+# 한국어 공문서 문장의 종결 어미: 이걸로 끝나는 줄은 문장 경계일 가능성이
+# 높아 병합하지 않는다 ("~이다", "~있음", "~수행함", "~예상됨" 등).
+_KOREAN_SENTENCE_TERMINAL_RE = re.compile(r"(?:다|요|음|함|됨|임|것)\s*$")
+# 헤딩/표 캡션 같은 짧은 명사구 줄을 본문으로 오인 병합하지 않기 위한 최소 길이.
+_KOREAN_MERGE_MIN_LINE_LENGTH = 25
+
+
+def _is_korean_continuation(left: str, right: str) -> bool:
+    """왼쪽 줄이 한국어 문장 중간에서 잘렸는지 판정한다.
+
+    한글은 대소문자가 없어 기존 `first_char.islower()` 규칙으로는
+    줄바꿈으로 잘린 한국어 문장을 병합하지 못한다. 왼쪽 줄이 한글로
+    끝나면서 종결 어미가 아니고, 오른쪽 줄이 한글로 시작하면 이어진
+    문장으로 본다.
+    """
+    if len(left) < _KOREAN_MERGE_MIN_LINE_LENGTH:
+        return False
+    if not _HANGUL_CHAR_RE.match(right[:1]):
+        return False
+    if not _HANGUL_CHAR_RE.match(left[-1:]):
+        return False
+    return not _KOREAN_SENTENCE_TERMINAL_RE.search(left)
+
+
 def _should_merge_lines(current: str, next_line: str) -> bool:
     left = current.rstrip()
     right = next_line.lstrip()
@@ -384,6 +409,8 @@ def _should_merge_lines(current: str, next_line: str) -> bool:
     if left.endswith((".", "!", "?", ":", ";")):
         return False
     if left.endswith("-") and not _PAGE_FOOTER_RE.match(left.strip()):
+        return True
+    if _is_korean_continuation(left, right):
         return True
     first_char = right[:1]
     return first_char.islower() or first_char.isdigit() or first_char in {'"', "'", "(", "["}

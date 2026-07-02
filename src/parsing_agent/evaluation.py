@@ -483,6 +483,43 @@ def _extract_markdown_table_blocks(text: str) -> list[list[str]]:
     return tables
 
 
+def calculate_table_structure_consistency(candidate_text: str) -> float:
+    """markdown 표의 구조적 정합성을 계산한다.
+
+    각 표 블록에서 행별 열(cell) 개수를 세어, 최빈 열 개수와 일치하는
+    행의 비율을 표 점수로 삼고 전체 표의 평균을 반환한다. 라벨만 남고
+    열 구조가 깨진 표(행마다 열 수가 다른 표)를 라벨 매칭과 독립적으로
+    감지하기 위한 지표다. 표가 없으면 1.0.
+    """
+    table_blocks = _extract_markdown_table_blocks(candidate_text)
+    scores: list[float] = []
+    for block in table_blocks:
+        if block and block[0].strip().lower().startswith("<table"):
+            # HTML 표는 rowspan/colspan이 정상이므로 여기서 판정하지 않는다.
+            continue
+        column_counts: list[int] = []
+        for line in block:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if not (stripped.startswith("|") and stripped.endswith("|")):
+                column_counts.append(-1)
+                continue
+            column_counts.append(len(stripped.split("|")) - 2)
+        if len(column_counts) < 2:
+            continue
+        positive_counts = [count for count in column_counts if count > 0]
+        if not positive_counts:
+            scores.append(0.0)
+            continue
+        modal_count = Counter(positive_counts).most_common(1)[0][0]
+        matching_rows = sum(1 for count in column_counts if count == modal_count)
+        scores.append(matching_rows / len(column_counts))
+    if not scores:
+        return 1.0
+    return _clamp(sum(scores) / len(scores))
+
+
 def _looks_like_unlabeled_pdf_table_line(line: str) -> bool:
     stripped = line.strip()
     if not stripped:
@@ -925,6 +962,10 @@ class DeterministicEvaluator(CandidateEvaluator):
         else:
             structure_retention = calculate_structure_retention(source_text, candidate_text)
             table_preservation = calculate_table_preservation(source_text, candidate_text)
+        table_structure_consistency = calculate_table_structure_consistency(candidate_text)
+        if table_structure_consistency < 1.0:
+            # 라벨은 남았지만 열 구조가 깨진 표를 라벨 매칭 점수와 별개로 반영한다.
+            table_preservation = _clamp(table_preservation * (0.7 + 0.3 * table_structure_consistency))
         metrics = EvaluationMetrics(
             text_coverage=calculate_text_coverage(source_text, candidate_text),
             normalized_similarity=calculate_normalized_similarity(source_text, candidate_text),
@@ -935,6 +976,10 @@ class DeterministicEvaluator(CandidateEvaluator):
             total_score=0.0,
         )
         metrics.notes.extend(_build_notes(metrics))
+        if table_structure_consistency < 0.9:
+            metrics.notes.append(
+                f"Markdown table column structure inconsistent (consistency={table_structure_consistency:.2f})."
+            )
         metrics.table_issues = classify_table_issues(source, candidate, None)
         metrics.issues.extend(
             _build_metric_issues(
