@@ -6,3 +6,4 @@ __pycache__/
 judge_feedback.jsonl
 .DS_Store
 data/
+*.egg-info/

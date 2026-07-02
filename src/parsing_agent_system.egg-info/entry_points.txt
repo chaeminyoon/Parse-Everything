@@ -1,2 +1,0 @@
-[console_scripts]
-parsing-agent = parsing_agent.cli:main
