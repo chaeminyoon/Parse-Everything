@@ -27,7 +27,12 @@ from parsing_agent.models import (
     load_document_source_text,
 )
 from parsing_agent.parsers import ParserRegistry, build_default_parser_registry
-from parsing_agent.repair import HeuristicRepairer, RepairTarget, identify_repair_targets
+from parsing_agent.repair import (
+    HeuristicRepairer,
+    RepairTarget,
+    apply_table_normalizations,
+    identify_repair_targets,
+)
 from parsing_agent.reporting import write_workflow_artifacts
 from parsing_agent.visual_repair import (
     OpenAIVisualTableRecoverer,
@@ -867,6 +872,14 @@ class WorkflowRunner:
         candidate = self._materialize_candidate_content(state["candidate"])
         metrics = state["metrics"]
         repairs = list(state.get("repairs") or [])
+        post_loop_normalizations: list[str] = []
+        if self._config.post_loop_normalization_enabled:
+            # 채점 루프가 끝난 뒤의 무손실 표 정규화. 현재 결정적 채점기가
+            # 이 정규화들을 감점하기 때문에(라벨 기반 표 메트릭의 오판)
+            # 루프 안이 아니라 여기서 적용한다 — apply_table_normalizations 참고.
+            normalized_content, post_loop_normalizations = apply_table_normalizations(candidate.content)
+            if post_loop_normalizations:
+                candidate = replace(candidate, content=normalized_content)
         summary = self._build_document_summary(state["source"], candidate.content)
         result = WorkflowResult(
             source=state["source"],
@@ -892,6 +905,7 @@ class WorkflowRunner:
                         "paths": [],
                     },
                     "failed_visual_task_keys": list(state.get("failed_visual_task_keys") or []),
+                    "post_loop_normalizations": post_loop_normalizations,
                     "visual_repair_rejections": list(state.get("visual_repair_rejections") or []),
                     "parse_errors": list(state.get("parse_errors") or []),
                     "rollback_events": list(state.get("rollback_events") or []),

@@ -977,6 +977,13 @@ def _issue_specific_prompt_guidance(issue_types: Iterable[str], preferred_output
         guidance.append(
             "The table likely contains merged cells. Preserve rowspan/colspan structure when visible, and prefer a complete HTML <table> block if merged headers or grouped cells are present."
         )
+        if preferred_output_format != "html":
+            guidance.append(
+                "When emitting markdown, repeat each vertically merged value in every row it spans instead of leaving blank cells."
+            )
+    guidance.append(
+        "If the cropped region actually contains multiple distinct tables, output them as separate tables with their own header rows instead of one fused table."
+    )
     if TABLE_ISSUE_MISSING_HEADER in normalized_issue_types:
         guidance.append(
             "Recover the header row carefully. Use only visibly legible header cells from the image; if a header is unreadable, leave that header cell blank rather than inventing one."
