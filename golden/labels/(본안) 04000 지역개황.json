@@ -1,5 +1,16 @@
 {
   "document": "(본안) 04000 지역개황.pdf",
   "pipeline_output": "outputs/golden-run/(본안) 04000 지역개황/(본안) 04000 지역개황.md",
-  "ratings": []
+  "ratings": [
+    {
+      "rater": "cmyoon",
+      "labeled_at": "2026-07-05",
+      "overall_quality": 4,
+      "text_coverage": 5,
+      "table_correctness": 3,
+      "structure_preservation": 5,
+      "hallucination": true,
+      "notes": "표 4.1-1 md미리보기로 미리보기 자체가 안됨. / 표 4.2-2 지목별 토지이용현황 내용자체가 기존내용으로 처리된게 아닌 다른 내용으로 처리됨. / 표 4.3-8 밑에 각주내용 자료 : 2024 국립공원 기본통계, 국립공원관리공단 내용이 없음 / 표 4.3-29 내용이 4.3-28 마지막에 중복으로 들어감 / 표 4.4-6 의 식으로 되어있는 부분이 다 제대로 구현이 안됨."
+    }
+  ]
 }
