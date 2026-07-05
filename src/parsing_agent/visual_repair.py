@@ -67,6 +67,9 @@ class VisualTableRecovery:
     notes: list[str]
     crop_method: str
     bbox: tuple[float, float, float, float] | None
+    # 재구성된 셀들이 crop 영역의 실제 텍스트에 존재하는 비율.
+    # 디지털 PDF에서만 계산되고, 스캔 페이지(텍스트 없음)는 None.
+    grounding: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1242,6 +1245,40 @@ def replace_page_table_block(content: str, page_number: int, markdown: str, tabl
     return normalized
 
 
+_HTML_TEXT_RE = re.compile(r">([^<>]+)<")
+
+
+def _recovery_grounding_ratio(reference_text: str, markup: str) -> float | None:
+    """재구성된 표의 셀들이 crop 영역 실제 텍스트에 존재하는 비율.
+
+    vision 모델이 엉뚱한 표를 재구성하면(잘못된 crop, 환각) 셀 내용이
+    crop 텍스트에 없으므로 비율이 낮게 나온다. 공백 차이를 무시하기 위해
+    양쪽 모두 공백을 제거하고 부분 문자열 포함으로 판정한다.
+    스캔 페이지처럼 참조 텍스트가 거의 없으면 판정 불가(None)로 둔다.
+    """
+    reference = re.sub(r"\s+", "", reference_text or "")
+    if len(reference) < 30:
+        return None
+    cells: list[str] = []
+    if "<table" in markup.lower():
+        cells = [match.strip() for match in _HTML_TEXT_RE.findall(markup)]
+    else:
+        for line in markup.splitlines():
+            stripped = line.strip()
+            if not (stripped.startswith("|") and stripped.endswith("|")):
+                continue
+            cells.extend(cell.strip() for cell in stripped.split("|")[1:-1])
+    normalized_cells = []
+    for cell in cells:
+        compact = re.sub(r"\s+", "", cell)
+        if len(compact) >= 2 and set(compact) - {"-", ":"}:
+            normalized_cells.append(compact)
+    if not normalized_cells:
+        return None
+    matched = sum(1 for cell in normalized_cells if cell in reference)
+    return matched / len(normalized_cells)
+
+
 def _find_text_label_line_index(lines: list[str], label: str) -> int | None:
     """번호 없는 표 라벨을 공백 무시 부분 일치로 찾는다."""
     needle = re.sub(r"\s+", "", label).strip()
@@ -1641,12 +1678,19 @@ class OpenAIVisualTableRecoverer:
         page_number = page_number or self._find_page_number(pdf_path, table_label)
         if page_number is None:
             return None
-        image_url, crop = self._render_table_region_data_url(pdf_path, page_number, table_label)
+        if _page_number_from_scoped_label(table_label) is None:
+            # judge가 준 페이지 번호를 검증한다. 라벨이 그 페이지에 없으면
+            # 재배치하고, 어디에도 없으면 포기한다 — 라벨 없는 페이지에서
+            # 아무 표나 crop하면 엉뚱한 표가 라벨 자리에 들어간다.
+            page_number = self._resolve_label_page(pdf_path, table_label, page_number)
+            if page_number is None:
+                return None
+        image_url, crop, crop_text = self._render_table_region_data_url(pdf_path, page_number, table_label)
         normalized_issue_types = tuple(issue_types)
-        continuation_urls = (
+        continuation_urls, continuation_text = (
             self._render_continuation_data_urls(pdf_path, page_number)
             if "split_multipage_table" in normalized_issue_types
-            else []
+            else ([], "")
         )
         prompt = self._build_prompt(
             table_label,
@@ -1694,6 +1738,7 @@ class OpenAIVisualTableRecoverer:
             notes=notes,
             crop_method=crop.method,
             bbox=crop.bbox,
+            grounding=_recovery_grounding_ratio(f"{crop_text}\n{continuation_text}", markdown),
         )
 
     def _build_prompt(
@@ -1736,25 +1781,54 @@ class OpenAIVisualTableRecoverer:
         )
 
     def _find_page_number(self, pdf_path: Path, table_label: str) -> int | None:
+        """라벨이 있는 페이지를 찾는다.
+
+        같은 라벨이 목차와 본문에 모두 등장할 수 있다. 라벨 앵커 아래에
+        실제 표가 감지되는 페이지를 우선하고, 없으면 마지막 등장 페이지를
+        쓴다 (목차는 앞쪽에 있으므로).
+        """
         label_number = _label_number(table_label)
         target_variants = {table_label, table_label.replace(" ", "")}
         if label_number is not None:
             target_variants.add(label_number)
+        matches: list[int] = []
         with fitz.open(pdf_path) as document:
             for page_index in range(document.page_count):
-                page_text = document.load_page(page_index).get_text("text")
-                if any(variant in page_text for variant in target_variants):
+                page = document.load_page(page_index)
+                page_text = page.get_text("text")
+                if not any(variant in page_text for variant in target_variants):
+                    continue
+                matches.append(page_index + 1)
+                anchor = self._find_label_anchor(page, table_label)
+                if anchor is not None and self._detect_table_rect(page, anchor) is not None:
                     return page_index + 1
-        return None
+        return matches[-1] if matches else None
 
-    def _render_continuation_data_urls(self, pdf_path: Path, page_number: int, max_pages: int = 1) -> list[str]:
+    def _resolve_label_page(self, pdf_path: Path, table_label: str, claimed_page: int) -> int | None:
+        """task가 들고 온 페이지 번호를 검증하고, 틀렸으면 재배치한다.
+
+        judge가 인쇄된 쪽번호를 PDF 페이지 번호로 착각해 보고하는 경우가
+        실제로 있다 (표 4.2-2가 4페이지인데 인쇄 쪽번호 44를 반환).
+        지정 페이지에 라벨 앵커가 없으면 문서 전체에서 다시 찾고,
+        어디에도 없으면 None을 반환해 맹목적인 crop을 막는다.
+        """
+        with fitz.open(pdf_path) as document:
+            if 1 <= claimed_page <= document.page_count:
+                page = document.load_page(claimed_page - 1)
+                if self._find_label_anchor(page, table_label) is not None:
+                    return claimed_page
+        return self._find_page_number(pdf_path, table_label)
+
+    def _render_continuation_data_urls(self, pdf_path: Path, page_number: int, max_pages: int = 1) -> tuple[list[str], str]:
         """다중 페이지 표의 이어지는 페이지 상단(60%)을 렌더링한다.
 
         split_multipage_table 이슈에서 첫 페이지 crop만 보내면 vision 모델이
         표의 뒷부분을 아예 못 보고 재구성하게 된다. 이어지는 페이지의 표는
         관례상 페이지 상단에 위치하므로 상단 60%를 함께 보낸다.
+        그라운딩 검증에 쓰도록 해당 영역의 텍스트도 함께 반환한다.
         """
         urls: list[str] = []
+        texts: list[str] = []
         with fitz.open(pdf_path) as document:
             for offset in range(1, max_pages + 1):
                 page_index = page_number - 1 + offset
@@ -1765,16 +1839,18 @@ class OpenAIVisualTableRecoverer:
                 pixmap = page.get_pixmap(matrix=fitz.Matrix(1.25, 1.25), clip=clip, alpha=False)
                 encoded = base64.b64encode(pixmap.tobytes("png")).decode("ascii")
                 urls.append(f"data:image/png;base64,{encoded}")
-        return urls
+                texts.append(page.get_text("text", clip=clip))
+        return urls, "\n".join(texts)
 
-    def _render_table_region_data_url(self, pdf_path: Path, page_number: int, table_label: str) -> tuple[str, TableCrop]:
+    def _render_table_region_data_url(self, pdf_path: Path, page_number: int, table_label: str) -> tuple[str, TableCrop, str]:
         with fitz.open(pdf_path) as document:
             page = document.load_page(page_number - 1)
             crop = self._build_table_crop(page, page_number, table_label)
             clip = crop.clip
             pixmap = page.get_pixmap(matrix=fitz.Matrix(1.25, 1.25), clip=clip, alpha=False)
+            crop_text = page.get_text("text", clip=clip)
         encoded = base64.b64encode(pixmap.tobytes("png")).decode("ascii")
-        return f"data:image/png;base64,{encoded}", crop
+        return f"data:image/png;base64,{encoded}", crop, crop_text
 
     def _build_table_crop(self, page, page_number: int, table_label: str) -> TableCrop:
         scoped_page_number, scoped_table_index = _page_table_selector_from_label(table_label)

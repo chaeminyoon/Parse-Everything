@@ -16,6 +16,9 @@ from parsing_agent.visual_repair import (
     replace_table_block,
 )
 
+# 재구성 표의 셀이 crop 텍스트에 존재해야 하는 최소 비율 (환각 방지 게이트)
+_MIN_RECOVERY_GROUNDING = 0.5
+
 _PDF_SECTION_RE = re.compile(r"^\s*(?:제\s*\d+\s*장|\d+(?:\.\d+)*\.|[가-힣A-Z]\.)\s+")
 _TABLE_CAPTION_RE = re.compile(r"^\s*(?:표|그림|table|figure)\s*\d", re.IGNORECASE)
 _PAGE_MARKER_RE = re.compile(r"^<!-- page (\d+) -->$")
@@ -1242,6 +1245,12 @@ class HeuristicRepairer(CandidateRepairer):
             return None
         if recovery.confidence < 0.45:
             _reject("low_confidence", confidence=round(recovery.confidence, 4))
+            return None
+        if recovery.grounding is not None and recovery.grounding < _MIN_RECOVERY_GROUNDING:
+            # 재구성된 셀 내용이 crop 영역의 실제 텍스트와 겹치지 않는다.
+            # 잘못된 페이지/crop에서 만들어진 환각 표가 라벨 자리에 들어가는
+            # 사고를 막는 게이트 (골든 라벨 1호가 잡아낸 실제 결함).
+            _reject("content_mismatch", grounding=round(recovery.grounding, 4))
             return None
         recovered_markdown = _normalize_recovered_table_markup(recovery.markdown)
         if not recovered_markdown:
