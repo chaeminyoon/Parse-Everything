@@ -214,3 +214,25 @@ def test_repair_chunk_node_records_chunk_exception_reason() -> None:
     assert chunk_result.candidate is None
     assert chunk_result.rejections[0]["reason"] == "chunk_exception"
     assert "RuntimeError" in chunk_result.rejections[0]["error"]
+
+
+def test_text_label_anchor_prefers_body_over_toc() -> None:
+    # 같은 라벨이 목차와 본문에 모두 등장하면 본문(표가 뒤따르거나 마지막 등장)을 고른다
+    content = "\n".join(
+        [
+            "목차",
+            "2. 사후환경영향조사계획(평가서 요약) 표 ......... 6",
+            "본문 시작",
+            "사후환경영향조사계획(평가서 요약) 표",
+            "본문 끝",
+        ]
+    )
+
+    transformed = insert_table_after_anchor(content, UNNUMBERED_LABEL, RECOVERED_TABLE)
+
+    lines = transformed.splitlines()
+    body_index = lines.index("사후환경영향조사계획(평가서 요약) 표")
+    assert "| 구분 | 조사항목 | 조사주기 |" in lines[body_index + 1 : body_index + 4]
+    # 목차 줄 다음에는 삽입되지 않았다
+    toc_index = next(i for i, l in enumerate(lines) if l.startswith("2."))
+    assert "| 구분" not in (lines[toc_index + 1] if toc_index + 1 < len(lines) else "")

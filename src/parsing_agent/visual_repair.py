@@ -1287,17 +1287,29 @@ def _recovery_grounding_ratio(reference_text: str, markup: str) -> float | None:
 
 
 def _find_text_label_line_index(lines: list[str], label: str) -> int | None:
-    """번호 없는 표 라벨을 공백 무시 부분 일치로 찾는다."""
+    """번호 없는 표 라벨을 공백 무시 부분 일치로 찾는다.
+
+    같은 라벨이 목차와 본문에 모두 등장할 수 있다. 표 유사 내용이 바로
+    뒤따르는 등장을 우선하고, 없으면 마지막 등장(본문 쪽)을 쓴다 —
+    첫 등장을 그대로 쓰면 목차 줄 뒤에 표가 삽입되는 사고가 난다.
+    """
     needle = re.sub(r"\s+", "", label).strip()
     if len(needle) < 4:
         return None
+    matches: list[int] = []
     for index, line in enumerate(lines):
         haystack = re.sub(r"\s+", "", line)
         if len(haystack) < 4:
             continue
         if needle in haystack or haystack in needle:
+            matches.append(index)
+    if not matches:
+        return None
+    for index in matches:
+        window = lines[index + 1 : index + 6]
+        if any(entry.strip().count("|") >= 2 for entry in window):
             return index
-    return None
+    return matches[-1]
 
 
 def insert_table_after_anchor(

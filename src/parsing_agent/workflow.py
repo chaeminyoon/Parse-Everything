@@ -880,6 +880,10 @@ class WorkflowRunner:
             normalized_content, post_loop_normalizations = apply_table_normalizations(candidate.content)
             if post_loop_normalizations:
                 candidate = replace(candidate, content=normalized_content)
+                metrics.notes.append(
+                    "Post-loop table normalizations applied after scoring "
+                    f"(metrics reflect pre-normalization content): {', '.join(post_loop_normalizations)}"
+                )
         summary = self._build_document_summary(state["source"], candidate.content)
         result = WorkflowResult(
             source=state["source"],

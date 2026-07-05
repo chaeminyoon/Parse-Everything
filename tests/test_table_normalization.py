@@ -226,3 +226,17 @@ def test_finalize_node_applies_normalizations_and_reports_them() -> None:
 
     assert result.best_candidate.content.count("864,940") == 1
     assert result.report["monitoring"]["post_loop_normalizations"] == ["remove_duplicate_table_blocks"]
+
+
+def test_split_ignores_stray_trailing_separator() -> None:
+    # 블록 끝의 떠돌이 구분선은 새 표의 헤더가 아니다
+    text = "\n".join(
+        [
+            "| 구분 | 값 |",
+            "| --- | --- |",
+            "| 수질 | BOD |",
+            "| --- | --- |",
+        ]
+    )
+    assert not _has_fused_table_blocks(text)
+    assert _split_fused_tables(text) == text

@@ -589,7 +589,8 @@ def _fused_table_split_points(lines: list[str], start: int, end: int) -> list[in
     for index in range(start, end):
         cells = _table_row_cells(lines[index])
         if _is_separator_row(cells):
-            if separator_seen and index - 1 > start and (index - 1) not in points:
+            # 블록 끝의 떠돌이 구분선은 헤더가 아니므로 분할하지 않는다
+            if separator_seen and index - 1 > start and index + 1 < end and (index - 1) not in points:
                 # 블록 중간의 두 번째 구분선: 바로 위 행이 새 표의 헤더다
                 points.append(index - 1)
             separator_seen = True

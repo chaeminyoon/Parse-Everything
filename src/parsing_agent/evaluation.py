@@ -1046,6 +1046,8 @@ class DeterministicEvaluator(CandidateEvaluator):
                 )
             )
         elif metrics.table_issues:
+            # judge가 없거나 실패(fail-open)한 경우의 폴백: deterministic
+            # 근거로 잡힌 표 이슈만으로 수리 대상을 만든다. 의도된 경로다.
             metrics.issues.extend(
                 _build_table_finding_issues(
                     candidate_text=candidate_text,
