@@ -190,9 +190,9 @@ tests/                 # test suite
 ## Roadmap
 
 - [x] PDF parsing support
-- [ ] Text-based `.docx`, `.pptx`, and `.csv` parsing support
-- [ ] Web/data formats: `.html`, `.htm`, `.json`, `.yaml`
-- [ ] OCR image formats: `.png`, `.jpg`, `.jpeg`, `.tiff`
+- [x] Text-based `.docx`, `.pptx`, and `.csv` parsing support — structure-preserving adapters (headings/lists/tables from OOXML via stdlib `zipfile`+`ElementTree`, CSV rendered as a markdown table with cp949/euc-kr fallback)
+- [x] Web/data formats: `.html`, `.htm`, `.json`, `.yaml` — HTML visible text → markdown (scripts/styles stripped), JSON/YAML hierarchy → nested markdown with object arrays as tables
+- [x] OCR image formats: `.png`, `.jpg`, `.jpeg`, `.tiff` — routed through the Surya OCR path (`PARSING_AGENT_OCR_ENABLED=1`), OCR text then flows through the same evaluate/repair loop
 
 ## License
 

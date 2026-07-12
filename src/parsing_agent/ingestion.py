@@ -6,10 +6,16 @@ from pathlib import Path
 from pypdf import PdfReader
 
 from parsing_agent.config import WorkflowConfig
+from parsing_agent.format_parsers import (
+    extract_docx_text,
+    extract_html_text,
+    extract_pptx_text,
+    read_text_with_fallback,
+)
 from parsing_agent.models import DocumentSource
 from parsing_agent.ocr import run_ocr, should_run_ocr
 
-_TEXT_SUFFIXES = {".txt", ".md", ".markdown", ".csv", ".json", ".yaml", ".yml", ".html", ".xml"}
+_TEXT_SUFFIXES = {".txt", ".md", ".markdown", ".csv", ".json", ".yaml", ".yml", ".html", ".htm", ".xml"}
 
 
 def detect_media_type(path: Path) -> str:
@@ -28,9 +34,19 @@ def _is_text_like(path: Path, media_type: str) -> bool:
 
 
 def extract_source_text(path: Path, media_type: str) -> tuple[str | None, int | None]:
+    suffix = path.suffix.lower()
+    # 바이너리 오피스 포맷: 평가/요약이 쓰는 extracted_text를 평문으로 채운다.
+    if suffix == ".docx":
+        return extract_docx_text(path), None
+    if suffix == ".pptx":
+        text, slide_count = extract_pptx_text(path)
+        return text, slide_count
+    # HTML은 마크업이 아니라 가시 텍스트가 평가 기준이 되어야 한다.
+    if suffix in (".html", ".htm") or media_type == "text/html":
+        return extract_html_text(path), None
     if _is_text_like(path, media_type):
-        return path.read_text(encoding="utf-8"), None
-    if media_type == "application/pdf" or path.suffix.lower() == ".pdf":
+        return read_text_with_fallback(path), None
+    if media_type == "application/pdf" or suffix == ".pdf":
         return extract_text_from_pdf(path)
     return None, None
 

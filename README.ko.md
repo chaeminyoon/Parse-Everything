@@ -202,14 +202,14 @@ src/parsing_agent/
 
 benchmarks/            # 외부 파서 head-to-head
 golden/                # 사람 라벨 골든셋 (라벨링 가이드, 상관 분석)
-tests/                 # 211 tests
+tests/                 # 229 tests
 ```
 
 ## 로드맵
 - [x] .pdf 파싱지원
-- [ ] 텍스트기반 .docx / .pptx / .csv 파싱지원
-- [ ] 웹 개발 데이터 포맷 .html / .htm / .json / .yaml 파싱지원
-- [ ] OCR연동 포맷 .png / .jpg / .jpeg / .tiff 파싱지원
+- [x] 텍스트기반 .docx / .pptx / .csv 파싱지원 — 구조 보존 어댑터 (OOXML을 stdlib zipfile+ElementTree로 직접 파싱해 헤딩/리스트/표 유지, CSV는 마크다운 표로 렌더링·cp949/euc-kr 폴백)
+- [x] 웹 개발 데이터 포맷 .html / .htm / .json / .yaml 파싱지원 — HTML 가시 텍스트→마크다운(script/style 제거), JSON/YAML 계층→중첩 마크다운·객체 배열은 표로
+- [x] OCR연동 포맷 .png / .jpg / .jpeg / .tiff 파싱지원 — Surya OCR 경로로 라우팅(PARSING_AGENT_OCR_ENABLED=1), OCR 텍스트가 동일한 평가/수리 루프를 통과
 
 
 ## 라이선스

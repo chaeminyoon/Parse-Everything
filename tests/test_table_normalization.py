@@ -198,7 +198,6 @@ def test_normalizations_stay_out_of_the_scored_repair_loop() -> None:
 
 
 def test_finalize_node_applies_normalizations_and_reports_them() -> None:
-    from parsing_agent.config import WorkflowConfig
     from parsing_agent.workflow import WorkflowRunner
 
     runner = WorkflowRunner(config=WorkflowConfig(judge_weight=0, langsmith_tracing=False))

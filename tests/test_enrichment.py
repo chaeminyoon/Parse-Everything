@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import base64
-from pathlib import Path
 
 from parsing_agent.config import WorkflowConfig
 from parsing_agent.enrichment import MarkdownImageCaptionEnricher

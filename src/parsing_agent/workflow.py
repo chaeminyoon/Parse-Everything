@@ -1142,9 +1142,22 @@ class WorkflowRunner:
         return candidates
 
     def _base_parser_name_for_source(self, source: DocumentSource) -> str:
+        from parsing_agent.format_parsers import STRUCTURED_SUFFIX_PARSERS
+        from parsing_agent.ocr import IMAGE_SUFFIXES
+
+        suffix = source.path.suffix.lower()
+        # Structured adapters win over the raw-text fallback (text/csv, text/html 등).
+        structured_name = STRUCTURED_SUFFIX_PARSERS.get(suffix)
+        if structured_name and self._parser_registry.has(structured_name):
+            return structured_name
+        # 이미지 입력은 인제스천의 OCR이 extracted_text를 채우고 source-text가 소비한다.
+        if (suffix in IMAGE_SUFFIXES or source.media_type.startswith("image/")) and self._parser_registry.has(
+            "source-text"
+        ):
+            return "source-text"
         if source.media_type.startswith("text/") and self._parser_registry.has("text-fallback"):
             return "text-fallback"
-        if source.path.suffix.lower() in {".md", ".markdown", ".txt"} and self._parser_registry.has("text-fallback"):
+        if suffix in {".md", ".markdown", ".txt"} and self._parser_registry.has("text-fallback"):
             return "text-fallback"
         return self._config.parser_names[0]
 

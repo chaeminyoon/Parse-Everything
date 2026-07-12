@@ -744,7 +744,7 @@ def _caption_image_block(page: fitz.Page, rect: fitz.Rect, page_index: int, conf
 
 class LocalTextParserAdapter(ParserAdapter):
     name = "text-fallback"
-    _TEXT_SUFFIXES = {".txt", ".md", ".markdown", ".csv", ".json", ".yaml", ".yml", ".html", ".xml"}
+    _TEXT_SUFFIXES = {".txt", ".md", ".markdown", ".csv", ".json", ".yaml", ".yml", ".html", ".htm", ".xml"}
 
     def parse(self, source: DocumentSource, config: WorkflowConfig) -> list[ParseCandidate]:
         if not self._is_text_like(source):
@@ -1075,11 +1075,26 @@ class ParserRegistry:
 
 
 def build_default_parser_registry() -> ParserRegistry:
+    # Local import: format_parsers reuses helpers from this module, so a
+    # top-level import here would create a cycle.
+    from parsing_agent.format_parsers import (
+        CsvParserAdapter,
+        DataParserAdapter,
+        DocxParserAdapter,
+        HtmlParserAdapter,
+        PptxParserAdapter,
+    )
+
     return ParserRegistry(
         [
             LayoutFirstPdfParserAdapter(),
             OpenDataLoaderPdfParserAdapter(),
             LocalTextParserAdapter(),
             ExtractedSourceTextParserAdapter(),
+            DocxParserAdapter(),
+            PptxParserAdapter(),
+            CsvParserAdapter(),
+            HtmlParserAdapter(),
+            DataParserAdapter(),
         ]
     )

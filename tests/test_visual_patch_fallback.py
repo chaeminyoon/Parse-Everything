@@ -234,5 +234,5 @@ def test_text_label_anchor_prefers_body_over_toc() -> None:
     body_index = lines.index("사후환경영향조사계획(평가서 요약) 표")
     assert "| 구분 | 조사항목 | 조사주기 |" in lines[body_index + 1 : body_index + 4]
     # 목차 줄 다음에는 삽입되지 않았다
-    toc_index = next(i for i, l in enumerate(lines) if l.startswith("2."))
+    toc_index = next(i for i, line in enumerate(lines) if line.startswith("2."))
     assert "| 구분" not in (lines[toc_index + 1] if toc_index + 1 < len(lines) else "")
