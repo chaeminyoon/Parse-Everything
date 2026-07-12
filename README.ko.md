@@ -17,7 +17,7 @@
 
 기존 파서(opendataloader, PyMuPDF 계열)에 한국 환경영향평가 보고서를 넣어보니 표가 절반쯤 깨져 나왔다. 파서를 바꿔도 깨지는 위치만 달라졌다. 그래서 파서를 고르는 대신, 파싱 결과가 깨졌다는 걸 알아채고 고치는 에이전틱 워크플로우를 만들었다.
 
-50~200페이지의 PDF를 대상으로 하고있으며, 구조화 된 표의 내용은 다 잡아낸다.
+50~200페이지의 PDF를 중심으로 하되, docx/pptx/csv·html/json/yaml·OCR 이미지까지 같은 루프로 처리한다. 구조화 된 표의 내용은 다 잡아낸다.
 
 ## 특징
 
@@ -28,7 +28,8 @@
 - 비전 수리 결과는 실제 텍스트와 셀 단위로 대조된다. 엉뚱한 표를 재구성하면 `content_mismatch`로 거부
 - 모든 실패에 사유가 남는다: `low_confidence(0.2)`, `patch_target_not_found`, `recover_exception: TimeoutError` 이런형태로
 - LLM 비용이 스테이지별로 집계된다 (호출 수, 재시도, 소요시간, 토큰)
-- 한국어 특화: 종결 어미 기반 문장 병합, 한국어 표 라벨 매칭
+- 한국어 특화: 종결 어미 기반 문장 병합, 한국어 표 라벨 매칭 (CSV·txt는 cp949/euc-kr 폴백)
+- 구조화 포맷(비-PDF)은 마크다운 장식을 걷어낸 콘텐츠로 평가한다 — 평문 원본이 표현 못 하는 헤딩·표를 파서가 만들어도 감점되지 않는다
 - API 키가 없으면 judge와 LLM 수리 없이 결정적 메트릭만으로 동작한다
 
 ## 설치
@@ -143,7 +144,7 @@ graph TB
 | 기본 파서 | opendataloader-pdf | Java 기반. 파서 어댑터 레지스트리 뒤에 있어서 다른 파서로 교체하거나 추가할 수 있다 |
 | OCR | Surya (subprocess) | 스캔 페이지용. 실패해도 파이프라인은 계속 간다 (fail-open) |
 | 트레이싱 | LangSmith | 노드 입출력을 구조화 요약으로만 내보낸다. 문서 원문은 트레이스에 나가지 않는다 |
-| 테스트/패키징 | pytest, uv, GitHub Actions | 211개 테스트가 1초 안에 돈다. 전부 모킹 기반이라 API 키 없이 CI에서 돈다 |
+| 테스트/패키징 | pytest, uv, GitHub Actions | 240개 테스트가 1초 안에 돈다. 전부 모킹 기반이라 API 키 없이 CI에서 돈다 |
 
 openai SDK 대신 urllib를 직접 쓰는 건 의도한 선택이다. 재시도 정책과 비용 계측을 호출 지점 한 곳(`_call_with_retry`)에서 통제하고 싶었고, SDK 버전 업그레이드에 끌려다니고 싶지 않았다. LangGraph를 쓴 이유는 반대로 직접 만들기 싫어서다. 조건부 엣지와 상태 병합을 손으로 짜면 그게 또 하나의 버그 표면이 된다.
 
@@ -198,11 +199,14 @@ src/parsing_agent/
 ├── visual_repair.py   # 비전 표 재구성, crop 전략
 ├── table_metrics.py   # TEDS-lite 셀 단위 표 유사도
 ├── llm_usage.py       # 스테이지별 LLM 비용 집계
-└── parsers.py         # 파서 어댑터 (opendataloader, layout-first, fallback)
+├── parsers.py         # PDF 파서 어댑터 + 레지스트리
+├── format_parsers.py  # docx/pptx/csv/html/json/yaml 구조화 어댑터 (stdlib OOXML)
+├── filetype.py        # 파일 타입 판별 단일 소스
+└── textutil.py        # 인코딩 폴백 읽기·NFC 정규화·마크다운 표 렌더
 
 benchmarks/            # 외부 파서 head-to-head
 golden/                # 사람 라벨 골든셋 (라벨링 가이드, 상관 분석)
-tests/                 # 229 tests
+tests/                 # 240 tests
 ```
 
 ## 로드맵

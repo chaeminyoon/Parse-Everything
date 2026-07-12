@@ -27,6 +27,8 @@ The project was shaped around Korean environmental impact assessment reports, wh
 - Validates vision table repair against real text/cell evidence and rejects mismatched patches.
 - Tracks LLM usage by stage, including calls, retries, latency, and tokens.
 - Supports Korean-specific document cleanup such as sentence merging and table-label matching.
+- Parses `.docx`/`.pptx`/`.csv`, `.html`/`.json`/`.yaml`, and OCR image formats through the same loop as PDF.
+- Evaluates structured (non-PDF) formats on decoration-stripped content, so the parser is never penalized for adding headings or tables the plain-text source could not express (`PARSING_AGENT_STRUCTURED_CONTENT_EVALUATION_ENABLED`, default on).
 - Runs without an API key by falling back to deterministic metrics and non-LLM repair paths.
 
 ## Installation
@@ -180,7 +182,10 @@ src/parsing_agent/
 ├── visual_repair.py   # vision table reconstruction and crop strategy
 ├── table_metrics.py   # TEDS-lite cell-level table similarity
 ├── llm_usage.py       # stage-level LLM usage accounting
-└── parsers.py         # parser adapters
+├── parsers.py         # PDF parser adapters + registry
+├── format_parsers.py  # docx/pptx/csv/html/json/yaml structured adapters (stdlib OOXML)
+├── filetype.py        # single source of truth for media-type/suffix checks
+└── textutil.py        # encoding-fallback reads, NFC normalization, markdown tables
 
 benchmarks/            # external parser head-to-head runs
 golden/                # human-labeled golden-set protocol
