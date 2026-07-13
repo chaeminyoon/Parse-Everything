@@ -1,0 +1,16 @@
+{
+  "document": "CO-OPS_Measurement_Spec.pdf",
+  "pipeline_output": "parsed/CO-OPS_Measurement_Spec/CO-OPS_Measurement_Spec.md",
+  "ratings": [
+    {
+      "rater": "cmyoon",
+      "labeled_at": "2026-07-13",
+      "overall_quality": 2,
+      "text_coverage": 3,
+      "table_correctness": 2,
+      "structure_preservation": 2,
+      "hallucination": false,
+      "notes": "1. 표의 페이지가 다음페이지로 넘어가면 해당 전후 페이지의 구조가 끊켜서 다음 표의 헤더로 만들어짐.\n2. 초반에 줄글이 쭉 있는데, 표처럼 보이지 않게끔 되어있음\n3. 줄글의 위치, 표의 위치가 깨져 줄글문단, 표문단 이런식으로 나뉘어있음"
+    }
+  ]
+}

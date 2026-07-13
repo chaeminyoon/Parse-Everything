@@ -1,0 +1,16 @@
+{
+  "document": "ndbc_web_data_guide.pdf",
+  "pipeline_output": "parsed/ndbc_web_data_guide/ndbc_web_data_guide.md",
+  "ratings": [
+    {
+      "rater": "cmyoon",
+      "labeled_at": "2026-07-13",
+      "overall_quality": 4,
+      "text_coverage": 5,
+      "table_correctness": 4,
+      "structure_preservation": 4,
+      "hallucination": false,
+      "notes": "1. 목차부분 순서가 깨짐\n2. 2페이지 The returned page will have four main sections: 아래 부부 삭제됨\n3. 8페이지 ship observations 부분 반복됨\n4. 8페이지 16번 표 없음\n5. appendix 2의 rain~ wlevel 까지 생략됨"
+    }
+  ]
+}

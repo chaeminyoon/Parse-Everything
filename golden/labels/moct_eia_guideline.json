@@ -1,0 +1,16 @@
+{
+  "document": "moct_eia_guideline.pdf",
+  "pipeline_output": "parsed/moct_eia_guideline/moct_eia_guideline.md",
+  "ratings": [
+    {
+      "rater": "cmyoon",
+      "labeled_at": "2026-07-13",
+      "overall_quality": 4,
+      "text_coverage": 4,
+      "table_correctness": 4,
+      "structure_preservation": 4,
+      "hallucination": false,
+      "notes": "1. 표가 대부분 그림 다이어그램으로 되어있어 해당 부분을 인지학지 못함"
+    }
+  ]
+}

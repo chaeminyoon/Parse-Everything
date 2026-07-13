@@ -1,0 +1,16 @@
+{
+  "document": "dredging_plan.pdf",
+  "pipeline_output": "parsed/dredging_plan/dredging_plan.md",
+  "ratings": [
+    {
+      "rater": "cmyoon",
+      "labeled_at": "2026-07-13",
+      "overall_quality": 5,
+      "text_coverage": 5,
+      "table_correctness": 5,
+      "structure_preservation": 5,
+      "hallucination": false,
+      "notes": ""
+    }
+  ]
+}

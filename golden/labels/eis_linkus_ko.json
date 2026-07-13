@@ -1,0 +1,16 @@
+{
+  "document": "eis_linkus_ko.pdf",
+  "pipeline_output": "parsed/eis_linkus_ko/eis_linkus_ko.md",
+  "ratings": [
+    {
+      "rater": "cmyoon",
+      "labeled_at": "2026-07-13",
+      "overall_quality": 1,
+      "text_coverage": 2,
+      "table_correctness": 2,
+      "structure_preservation": 2,
+      "hallucination": false,
+      "notes": "1. ES-ii 줄글이 다수 생략됨 md 파일에서 대치되는 부분은 바로 표로 넘어감\n2. 이어 표내용도 ES-x,v부분으로 이어짐 다수 표 생략"
+    }
+  ]
+}

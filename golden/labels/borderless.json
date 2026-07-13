@@ -1,0 +1,16 @@
+{
+  "document": "borderless.pdf",
+  "pipeline_output": "parsed/borderless/borderless.md",
+  "ratings": [
+    {
+      "rater": "cmyoon",
+      "labeled_at": "2026-07-13",
+      "overall_quality": 2,
+      "text_coverage": 2,
+      "table_correctness": 1,
+      "structure_preservation": 1,
+      "hallucination": false,
+      "notes": "본문내용은 표로 구성되게끔 되어있으나 실제로는 표가 없음"
+    }
+  ]
+}

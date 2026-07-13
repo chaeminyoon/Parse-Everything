@@ -1,0 +1,16 @@
+{
+  "document": "kiost_marine_report.pdf",
+  "pipeline_output": "parsed/kiost_marine_report/kiost_marine_report.md",
+  "ratings": [
+    {
+      "rater": "cmyoon",
+      "labeled_at": "2026-07-13",
+      "overall_quality": 3,
+      "text_coverage": 3,
+      "table_correctness": 2,
+      "structure_preservation": 3,
+      "hallucination": false,
+      "notes": "1. 해류도를 3종으로 확대하였다(그림 4, 5). 와 그림 4 사이에 image 관련된 관련태그가 너무많음\n2. 표7 꺠짐\n3. (전반) 그림 내용이 보고서에 줄글 형태로 들어가있는 경우가 많음 \n4. 통합 표인경우(한개의 칸이 두개의 컬럼넓이에 해당하는경우) 파싱결과가 총 두개의 표에 같은 값이 들어가는게 합당함\n5. (전반) 각 구분, 장,절,세 등에 대한 내용 1. ~ 2) ~ 이런것들은 다른 글과 별도의 내용으로 있어야됨 다만 지금 .md 파일에서는 전체적으로 본문내용과 장,절,세의 내용이 동일한 레벨로 들어가있음.\n6. 표 19위치에 표 20내용이 있어서 서로의 위치가 바뀜\n7. 표 21 표안에 표가 있어 표본문과 표안표 내용이 서로 겹쳐있음.\n8. 표 24가 그 위 표내용과 겹쳐져있음\n9. 표 32 와 표 33의 위치내용이 서로바뀜\n10. 표36 표 안 표 내용이 위 본문내용과 겹쳐져있음\n11. \n"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "document": "kocw_eia_lecture.pdf",
+  "pipeline_output": "parsed/kocw_eia_lecture/kocw_eia_lecture.md",
+  "ratings": [
+    {
+      "rater": "cmyoon",
+      "labeled_at": "2026-07-13",
+      "overall_quality": 4,
+      "text_coverage": 4,
+      "table_correctness": 3,
+      "structure_preservation": 3,
+      "hallucination": false,
+      "notes": "1. 표2 정책계획은 그림으로 된 표로보임. 그래서 추출되지 않은것으로 보임.\n2. 표5에 환경영향평가 \"평가항목, 대기환경분야\",\"세부평가항목\" 생략됨\n"
+    }
+  ]
+}

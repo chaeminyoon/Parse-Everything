@@ -1,0 +1,16 @@
+{
+  "document": "eia_hwaseong.pdf",
+  "pipeline_output": "parsed/eia_hwaseong/eia_hwaseong.md",
+  "ratings": [
+    {
+      "rater": "cmyoon",
+      "labeled_at": "2026-07-13",
+      "overall_quality": 3,
+      "text_coverage": 3,
+      "table_correctness": 4,
+      "structure_preservation": 5,
+      "hallucination": false,
+      "notes": "1. 20페이지 7.4 토지환경분야 나. 토양 에 ㅁ공사 시 -> 공사시 부분이 생략됨\n2. 8.3 수환경분야 ㅁ운영 시  \"- 공원 및 녹지조성 , - 보행자도로 : 투수성 포장\" 부분이 생략됨\n3. 26페이지 8.5 생활환경분야 \"ㅁ공사 시 밑에 \"- 로 된 값들 생략\"\n4. 29페이지 표 선정사유는 컬럼1, 컬럼2가 통합되어야함\n"
+    }
+  ]
+}
