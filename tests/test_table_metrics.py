@@ -105,7 +105,7 @@ def _dummy_source() -> DocumentSource:
 
 def test_evaluator_records_cell_similarity_for_pdf_sources(monkeypatch) -> None:
     monkeypatch.setattr(
-        "parsing_agent.evaluation.extract_pdf_table_grids",
+        "parsing_agent.evaluation.extract_reference_grids",
         lambda path, max_pages=40: [REFERENCE_GRID],
     )
     source = DocumentSource(
@@ -126,3 +126,32 @@ def test_evaluator_records_cell_similarity_for_pdf_sources(monkeypatch) -> None:
     assert metrics.table_cell_similarity is not None
     assert metrics.table_cell_similarity < 0.7
     assert any("teds_lite" in note for note in metrics.notes)
+
+
+def test_reference_grids_fall_back_to_visual_model_when_no_ruled_grids(tmp_path, monkeypatch) -> None:
+    """괘선 그리드 부재 시(골든: borderless 심판 부재) docling 그리드로 폴백."""
+    from parsing_agent import table_metrics
+
+    visual_grid = [["관측소", "관측일수"], ["덕적도", "361"]]
+    monkeypatch.setattr(table_metrics, "extract_pdf_table_grids", lambda path, max_pages=40: [])
+    monkeypatch.setattr(
+        "parsing_agent.docling_parser.docling_reference_grids", lambda path: [visual_grid]
+    )
+
+    assert table_metrics.extract_reference_grids(tmp_path / "x.pdf") == [visual_grid]
+
+
+def test_reference_grids_prefer_ruled_grids(tmp_path, monkeypatch) -> None:
+    """괘선 그리드가 있으면 시각 모델(편향 심판)을 부르지 않는다."""
+    from parsing_agent import table_metrics
+
+    ruled = [[["a", "b"], ["1", "2"]]]
+    monkeypatch.setattr(table_metrics, "extract_pdf_table_grids", lambda path, max_pages=40: ruled)
+    called = []
+    monkeypatch.setattr(
+        "parsing_agent.docling_parser.docling_reference_grids",
+        lambda path: called.append(path) or [],
+    )
+
+    assert table_metrics.extract_reference_grids(tmp_path / "x.pdf") == ruled
+    assert not called

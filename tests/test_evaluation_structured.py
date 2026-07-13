@@ -184,7 +184,7 @@ def test_content_similarity_large_stream_still_detects_loss() -> None:
 def test_unlabeled_pdf_table_preservation_falls_back_to_teds(tmp_path: Path, monkeypatch) -> None:
     """라벨 없는 PDF에서 라벨 매칭 표 점수(실측 0.016)가 TEDS-lite로 대체되는지."""
     monkeypatch.setattr(
-        "parsing_agent.evaluation.extract_pdf_table_grids",
+        "parsing_agent.evaluation.extract_reference_grids",
         lambda path, max_pages=40: [[["구간", "연장"], ["북측 호안", "320"]]],
     )
     pdf_path = tmp_path / "spec.pdf"
@@ -203,7 +203,7 @@ def test_unlabeled_pdf_table_preservation_falls_back_to_teds(tmp_path: Path, mon
 
 def test_labeled_pdf_keeps_label_matching_metric(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(
-        "parsing_agent.evaluation.extract_pdf_table_grids",
+        "parsing_agent.evaluation.extract_reference_grids",
         lambda path, max_pages=40: [[["구간", "연장"], ["북측 호안", "320"]]],
     )
     pdf_path = tmp_path / "labeled.pdf"

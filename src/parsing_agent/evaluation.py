@@ -9,7 +9,7 @@ from parsing_agent.config import WorkflowConfig, WorkflowWeights
 from parsing_agent.filetype import is_pdf_source as _is_pdf_source
 from parsing_agent.format_parsers import STRUCTURED_SUFFIX_PARSERS
 from parsing_agent.interfaces import CandidateEvaluator, CandidateJudge
-from parsing_agent.table_metrics import calculate_table_cell_similarity, extract_pdf_table_grids
+from parsing_agent.table_metrics import calculate_table_cell_similarity, extract_reference_grids
 from parsing_agent.models import (
     DocumentSource,
     EvaluationIssue,
@@ -1048,7 +1048,7 @@ class DeterministicEvaluator(CandidateEvaluator):
     def _reference_table_grids(self, source: DocumentSource) -> list:
         cache_key = str(source.path)
         if cache_key not in self._pdf_grid_cache:
-            self._pdf_grid_cache[cache_key] = extract_pdf_table_grids(
+            self._pdf_grid_cache[cache_key] = extract_reference_grids(
                 source.path,
                 max_pages=getattr(self._config, "table_cell_metric_max_pages", 40),
             )

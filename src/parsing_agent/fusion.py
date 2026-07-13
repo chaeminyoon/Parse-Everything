@@ -21,7 +21,7 @@ from pathlib import Path
 from parsing_agent.models import DocumentSource
 from parsing_agent.table_metrics import (
     Grid,
-    extract_pdf_table_grids,
+    extract_reference_grids,
     parse_markdown_table_grid,
     teds_lite,
 )
@@ -184,7 +184,7 @@ def fuse_tables_from_alternate(
     PDF에서 그리드를 추출하고 대체 파서를 실행한다.
     """
     if reference_grids is None:
-        reference_grids = extract_pdf_table_grids(source.path)
+        reference_grids = extract_reference_grids(source.path)
     if not reference_grids:
         return content
     if alternate_content is not None:

@@ -101,6 +101,23 @@ def teds_lite(reference: Grid, candidate: Grid) -> float:
     return score / total_cells
 
 
+def extract_reference_grids(pdf_path, *, max_pages: int = 40) -> list[Grid]:
+    """기준 그리드의 단일 진입점 — 괘선 그리드 우선, 없으면 시각 모델 그리드.
+
+    괘선 없는 표·그림 표 문서는 find_tables가 빈 목록을 내서 심판 부재가
+    된다. 그때만 docling TableFormer 그리드로 폴백한다 (편향 주의는
+    docling_reference_grids docstring 참조; 미설치면 그대로 빈 목록).
+    """
+    grids = extract_pdf_table_grids(pdf_path, max_pages=max_pages)
+    if grids:
+        return grids
+    try:
+        from parsing_agent.docling_parser import docling_reference_grids
+    except ImportError:  # pragma: no cover
+        return grids
+    return docling_reference_grids(pdf_path)
+
+
 def teds_lite_best_offset(reference: Grid, candidate: Grid, *, max_offsets: int = 400) -> float:
     """행 오프셋을 허용한 TEDS-lite — 병합된 다중페이지 표를 공정하게 심판한다.
 

@@ -57,3 +57,44 @@ class DoclingPdfParserAdapter(ParserAdapter):
                 source_path=source.path,
             )
         ]
+
+
+# 문서별 그리드 캐시 — 변환이 비싸다 (모델 추론).
+_grid_cache: dict[str, list] = {}
+
+
+def docling_reference_grids(path) -> list[list[list[str]]]:
+    """docling TableFormer가 인식한 표들을 기준 그리드 형태로 반환한다.
+
+    괘선 없는 표·그림 표는 fitz find_tables가 못 보므로 기준 그리드가 없어
+    심판 부재 상태가 된다 (골든 파일럿에서 사람이 확정한 맹점). 시각 모델의
+    그리드를 그 자리에 세운다.
+
+    주의 — 편향: docling은 융합 후보이기도 하므로 이 그리드는 docling에
+    유리한 심판이다. 그래서 호출부는 괘선 그리드가 '아예 없을 때만' 쓴다
+    (심판이 없는 것보다는 편향된 심판이 낫다는 실측 판단 — borderless
+    골든 케이스에서 5×4 표를 정확히 복원).
+    """
+    key = str(path)
+    if key in _grid_cache:
+        return _grid_cache[key]
+    grids: list[list[list[str]]] = []
+    if docling_available():
+        try:
+            document = _get_converter().convert(key).document
+            for table in document.tables:
+                frame = table.export_to_dataframe(document)
+                rows: list[list[str]] = []
+                columns = list(frame.columns)
+                # 열 이름이 실제 헤더면(0..n 정수 나열이 아니면) 첫 행으로 승격
+                if not all(isinstance(c, int) for c in columns):
+                    rows.append([" ".join(str(c).split()).lower() for c in columns])
+                for record in frame.itertuples(index=False):
+                    rows.append([" ".join(str(v).split()).lower() for v in record])
+                rows = [r for r in rows if any(cell.strip() for cell in r)]
+                if len(rows) >= 2 and max(len(r) for r in rows) >= 2:
+                    grids.append(rows)
+        except Exception:  # noqa: BLE001 - 시각 그리드 실패는 심판 부재로 돌아갈 뿐이다
+            grids = []
+    _grid_cache[key] = grids
+    return grids
