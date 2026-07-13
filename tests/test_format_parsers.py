@@ -517,3 +517,57 @@ def test_base_parser_routing_for_new_formats(tmp_path: Path) -> None:
             run_id="routing-new",
         )
         assert runner._base_parser_name_for_source(source) == expected, file_name
+
+
+# ---------------------------------------------------------------------------
+# 데이터 포맷 평가 기준 (실전 해양 데이터 스트레스 테스트에서 발견된 회귀)
+# ---------------------------------------------------------------------------
+
+
+def test_extract_data_text_is_value_centric(tmp_path: Path) -> None:
+    """키가 레코드마다 반복되는 JSON에서 값 시퀀스만 평가 기준이 된다."""
+    from parsing_agent.format_parsers import extract_data_text
+
+    json_path = tmp_path / "records.json"
+    json_path.write_text(
+        '[{"t": "00:00", "v": "1.25"}, {"t": "00:06", "v": "1.24"}]', encoding="utf-8"
+    )
+
+    text = extract_data_text(json_path)
+
+    assert "1.25" in text and "00:06" in text
+    assert '"t"' not in text and "{" not in text
+
+
+def test_extract_xml_text_dumps_attribute_values(tmp_path: Path) -> None:
+    from parsing_agent.format_parsers import extract_xml_text
+
+    xml_path = tmp_path / "stations.xml"
+    xml_path.write_text(
+        '<stations><station id="46042" name="몬터레이"/><station id="22101" name="덕적도"/></stations>',
+        encoding="utf-8",
+    )
+
+    text = extract_xml_text(xml_path)
+
+    assert "46042 몬터레이" in text
+    assert "22101 덕적도" in text
+    assert "<" not in text and "station" not in text
+
+
+def test_extract_source_text_routes_data_formats(tmp_path: Path) -> None:
+    json_path = tmp_path / "data.json"
+    json_path.write_text('{"key": "값"}', encoding="utf-8")
+
+    text, _ = extract_source_text(json_path, "application/json")
+
+    assert text == "값"
+
+
+def test_malformed_data_file_falls_back_to_raw_baseline(tmp_path: Path) -> None:
+    from parsing_agent.format_parsers import extract_data_text
+
+    broken = tmp_path / "broken.json"
+    broken.write_text('{"unclosed": ', encoding="utf-8")
+
+    assert extract_data_text(broken) == '{"unclosed": '

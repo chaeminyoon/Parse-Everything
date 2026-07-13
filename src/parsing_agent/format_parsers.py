@@ -874,3 +874,63 @@ class XmlParserAdapter(ParserAdapter):
                 source_path=source.path,
             )
         ]
+
+
+# ---------------------------------------------------------------------------
+# 데이터 포맷의 평가 기준 텍스트 (ingestion용)
+#
+# 원시 직렬화(JSON/XML)는 키·태그명이 레코드 수만큼 반복되므로, 표로 접는
+# 정상 파싱이 커버리지/유사도에서 감점된다 (실측: 1,300+ 레코드에서 sim 0.001).
+# 평가 기준은 "값 시퀀스"다 — 키/태그는 구조, 값이 콘텐츠다.
+# ---------------------------------------------------------------------------
+
+
+def _data_content_lines(value: object) -> list[str]:
+    if isinstance(value, dict):
+        lines: list[str] = []
+        for item in value.values():
+            lines.extend(_data_content_lines(item))
+        return lines
+    if isinstance(value, list):
+        lines = []
+        for item in value:
+            lines.extend(_data_content_lines(item))
+        return lines
+    if value is None:
+        return []
+    rendered = _clean_inline(str(value))
+    return [rendered] if rendered else []
+
+
+def extract_data_text(path: Path) -> str:
+    """JSON/YAML의 값 중심 평문 덤프. 파싱 실패 시 원문 텍스트로 폴백."""
+    text = read_text_with_fallback(path)
+    suffix = path.suffix.lower()
+    try:
+        if suffix == ".json":
+            value = json.loads(text)
+        elif yaml is not None:
+            value = yaml.safe_load(text)
+        else:
+            return text
+    except Exception:  # noqa: BLE001 - 깨진 문서는 raw 텍스트가 평가 기준
+        return text
+    return normalize_markdown_text("\n".join(_data_content_lines(value))).strip() or text
+
+
+def extract_xml_text(path: Path) -> str:
+    """XML의 값 중심 평문 덤프(속성값+요소 텍스트). 파싱 실패 시 원문 폴백."""
+    text = read_text_with_fallback(path)
+    try:
+        root = ElementTree.fromstring(text)
+    except ElementTree.ParseError:
+        return text
+    lines: list[str] = []
+    for element in root.iter():
+        parts = [_clean_inline(v) for v in element.attrib.values() if _clean_inline(v)]
+        element_text = _clean_inline(element.text or "")
+        if element_text:
+            parts.append(element_text)
+        if parts:
+            lines.append(" ".join(parts))
+    return normalize_markdown_text("\n".join(lines)).strip() or text

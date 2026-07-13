@@ -8,11 +8,13 @@ from pypdf import PdfReader
 from parsing_agent.config import WorkflowConfig
 from parsing_agent.filetype import is_pdf, is_text_like
 from parsing_agent.format_parsers import (
+    extract_data_text,
     extract_docx_text,
     extract_html_text,
     extract_odt_text,
     extract_pptx_text,
     extract_xlsx_text,
+    extract_xml_text,
 )
 from parsing_agent.models import DocumentSource
 from parsing_agent.ocr import run_ocr, should_run_ocr
@@ -45,6 +47,11 @@ def extract_source_text(path: Path, media_type: str) -> tuple[str | None, int | 
     # HTML은 마크업이 아니라 가시 텍스트가 평가 기준이 되어야 한다.
     if suffix in (".html", ".htm") or media_type == "text/html":
         return extract_html_text(path), None
+    # 데이터 포맷은 값 시퀀스가 평가 기준 — 키/태그 반복이 표 접기를 감점하지 않게.
+    if suffix in (".json", ".yaml", ".yml"):
+        return extract_data_text(path), None
+    if suffix == ".xml":
+        return extract_xml_text(path), None
     if is_text_like(media_type, path):
         return read_text_with_fallback(path), None
     if is_pdf(media_type, path):

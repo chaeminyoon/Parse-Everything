@@ -160,3 +160,22 @@ def test_plain_text_sources_are_unaffected(tmp_path: Path) -> None:
     )
 
     assert metrics.total_score == 1.0
+
+
+def test_content_similarity_survives_large_repetitive_token_streams() -> None:
+    """1,000+ 레코드 데이터에서 SequenceMatcher autojunk 붕괴(실측 0.001)의 회귀 가드."""
+    rows = [f"2026-07-01 {i:04d} 1.{i % 100:02d} 0 0 p" for i in range(1500)]
+    source = "\n".join(rows)
+    candidate = "| t | v |\n| --- | --- |\n" + "\n".join(f"| {row} |" for row in rows)
+
+    score = calculate_content_similarity(source, strip_markdown_decorations(candidate))
+
+    assert score > 0.95
+
+
+def test_content_similarity_large_stream_still_detects_loss() -> None:
+    rows = [f"관측값 {i} 파고 {i % 9}.{i % 10}" for i in range(3000)]
+    source = "\n".join(rows)
+    candidate = "\n".join(rows[:900])  # 70% 손실
+
+    assert calculate_content_similarity(source, candidate) < 0.6

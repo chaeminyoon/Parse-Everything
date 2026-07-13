@@ -272,11 +272,18 @@ def strip_markdown_decorations(text: str) -> str:
     return "\n".join(lines)
 
 
+# 이 길이를 넘는 콘텐츠는 문자 시퀀스 정렬이 무의미해진다: SequenceMatcher의
+# autojunk가 반복 토큰(숫자·플래그)을 전부 정크로 몰아 ratio가 0으로 붕괴하고
+# (실측: 1,689 레코드 JSON에서 0.001), autojunk=False는 O(n·m)이라 감당이 안 된다.
+_CONTENT_SEQUENCE_LIMIT = 20_000
+
+
 def calculate_content_similarity(source_text: str, candidate_text: str) -> float:
-    """마크업 형태와 무관한 콘텐츠 토큰 시퀀스 유사도.
+    """마크업 형태와 무관한 콘텐츠 토큰 유사도.
 
     양쪽을 단어 토큰 시퀀스로 정규화한 뒤 `SequenceMatcher`로 비교한다.
-    구두점·마크다운 문법 차이는 무시되지만 토큰 누락·순서 변경은 반영된다.
+    대용량 데이터 파일은 토큰 멀티셋 F1으로 대체한다 — 순서 정보는 잃지만
+    누락·중복은 그대로 잡히고, 반복 토큰에서도 무너지지 않는다.
     """
     normalized_source = " ".join(_WORD_RE.findall(source_text.lower()))
     normalized_candidate = " ".join(_WORD_RE.findall(candidate_text.lower()))
@@ -284,6 +291,12 @@ def calculate_content_similarity(source_text: str, candidate_text: str) -> float
         return 1.0
     if not normalized_source or not normalized_candidate:
         return 0.0
+    if max(len(normalized_source), len(normalized_candidate)) > _CONTENT_SEQUENCE_LIMIT:
+        source_tokens = Counter(normalized_source.split())
+        candidate_tokens = Counter(normalized_candidate.split())
+        intersection = sum((source_tokens & candidate_tokens).values())
+        total = sum(source_tokens.values()) + sum(candidate_tokens.values())
+        return (2 * intersection / total) if total else 1.0
     return SequenceMatcher(None, normalized_source, normalized_candidate).ratio()
 
 

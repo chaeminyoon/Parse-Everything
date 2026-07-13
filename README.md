@@ -186,7 +186,7 @@ Scripts and styles never reach the output — only visible text, with markdown s
 
 ```console
 $ uv run parsing-agent examples/pipeline.yaml
-Best score: 0.800
+Best score: 0.869
 ```
 
 ```markdown
@@ -233,7 +233,7 @@ Stats: 193 chars, 61 words, 13 lines
 | 준공 | 2027-06 |
 ```
 
-Each sheet gets a heading and becomes a markdown table (sharedStrings, inline strings, and booleans handled — stdlib SpreadsheetML parsing, no openpyxl). Likewise `examples/stations.xml` (0.762) turns repeated elements into a table, and `examples/minutes.odt` (1.000) keeps ODF headings/lists/tables:
+Each sheet gets a heading and becomes a markdown table (sharedStrings, inline strings, and booleans handled — stdlib SpreadsheetML parsing, no openpyxl). Likewise `examples/stations.xml` (0.910) turns repeated elements into a table, and `examples/minutes.odt` (1.000) keeps ODF headings/lists/tables:
 
 ```markdown
 - **stations (region="남해" updated="2026-07-01"):**
